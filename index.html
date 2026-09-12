@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب - مستخدمون موثقون</title>
+    <title>واتساب - محادثة ومكالمات</title>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -18,7 +18,6 @@
         .contact-item:hover, .contact-item.active { background-color: #2a3942; }
         .contact-avatar { width: 45px; height: 45px; background-color: #00a884; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; color: white; margin-left: 12px; position: relative; }
         
-        /* علامة التوثيق الخضراء */
         .verified-badge { position: absolute; bottom: 0; left: 0; background: #00a884; color: white; font-size: 10px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #111b21; }
 
         .contact-info { flex: 1; }
@@ -58,7 +57,6 @@
 </head>
 <body>
 
-    <!-- نافذة تسجيل الدخول والتوثيق الإلزامي -->
     <div id="login-modal">
         <div class="login-box">
             <h3>توثيق حساب جديد</h3>
@@ -80,7 +78,7 @@
         </div>
 
         <div id="chat-container">
-            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر مستخدماً موثقاً وابدأ المحادثة أو إرسال الصور</div>
+            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر مستخدماً موثقاً وابدأ المحادثة أو الاتصال</div>
         </div>
 
         <form id="form">
@@ -200,18 +198,25 @@
             }
         }
 
+        // تفعيل طلب المكالمة وإرسالها للسيرفر لتنبيه الطرف الآخر فوراً
         function startCall(type) {
             if (currentChat === "الكل") {
-                alert("اختر مستخدماً موثقاً محدداً من القائمة للاتصال به!");
+                alert("يرجى اختيار مستخدم معين من القائمة لبدء المكالمة معه!");
                 return;
             }
-            alert(`جاري الاتصال بـ ${currentChat}...`);
-            socket.emit('call_user', { from: username, to: currentChat, type: type });
+            if (confirm(`هل تريد حقاً بدء مكالمة ${type} مع المستخدم ${currentChat}؟`)) {
+                socket.emit('call_user', { from: username, to: currentChat, type: type });
+                alert(`جاري استدعاء ${currentChat}...`);
+            }
         }
 
+        // استقبال التنبيه عند وصول مكالمة للمستخدم المحدد
         socket.on('incoming_call', (data) => {
             if (data.to === username) {
-                alert(`مكالمة واردة من الحساب الموثق: ${data.from}`);
+                const accept = confirm(`تتلقى مكالمة ${data.type} واردة من الحساب الموثق: ${data.from}\nهل تريد الرد؟`);
+                if (accept) {
+                    alert("تم فتح خط الاتصال بنجاح!");
+                }
             }
         });
 
