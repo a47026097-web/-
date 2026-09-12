@@ -38,7 +38,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.0 || 3000;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`السيرفر يعمل على البورت ${PORT}`);
 });
