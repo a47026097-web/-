@@ -10,21 +10,15 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname)));
 
 let messages = [];
-let verifiedUsers = {}; // تخزين المستخدمين الموثقين مع كلمات مرورهم البسيطة أو حالتهم
+let verifiedUsers = {};
 
 io.on('connection', (socket) => {
     socket.emit('load_history', messages);
     socket.emit('update_users', Object.keys(verifiedUsers));
 
-    // تسجيل أو التحقق من المستخدم
     socket.on('verify_user', (username) => {
         if (!username || username.trim() === "") return;
-        
-        // إذا كان المستخدم جديداً، يتم توثيقه وإضافته للقائمة الرسمية
-        if (!verifiedUsers[username]) {
-            verifiedUsers[username] = { online: true };
-        }
-        
+        verifiedUsers[username] = { socketId: socket.id };
         socket.emit('auth_success', username);
         io.emit('update_users', Object.keys(verifiedUsers));
     });
@@ -35,7 +29,9 @@ io.on('connection', (socket) => {
         io.emit('receive_message', data);
     });
 
+    // إدارة طلب المكالمة
     socket.on('call_user', (data) => {
+        // data: { from, to, type }
         io.emit('incoming_call', data);
     });
 
