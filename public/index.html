@@ -1,186 +1,100 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>واتساب محلي - مكالمات وصور</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محادثة خاصة وآمنة</title>
+    <!-- مكتبة Socket.io للاتصال الفوري -->
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
+        body { background-color: #efeae2; display: flex; flex-direction: column; height: 100vh; }
+        header { background-color: #00a884; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; }
+        #chat-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 8px; word-wrap: break-word; font-size: 14px; position: relative; }
+        .message.incoming { background-color: #ffffff; align-self: flex-start; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
+        .message.outgoing { background-color: #d9fdd3; align-self: flex-end; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
+        .sender-name { font-size: 11px; color: #005c4b; font-weight: bold; margin-bottom: 3px; display: block; }
+        .message-text { color: #111; }
+        #form { display: flex; padding: 10px; background-color: #f0f2f5; }
+        #input { flex: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 14px; background: #fff; }
+        #send-btn { background-color: #00a884; color: white; border: none; padding: 0 20px; margin-right: 8px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #send-btn:hover { background-color: #008f72; }
+    </style>
 </head>
-<body class="bg-[#0b141a] text-[#e9edef] font-sans antialiased flex justify-center items-center min-h-screen">
+<body>
 
-  <div class="w-full max-w-md h-[100vh] md:h-[90vh] bg-[#111b21] flex flex-col justify-between shadow-2xl relative overflow-hidden md:rounded-2xl border border-gray-800">
+    <header>محادثة خاصة عائلية</header>
 
-    <div class="p-4 bg-[#111b21] flex justify-between items-center border-b border-[#222d34]">
-      <div>
-        <h1 class="text-lg font-bold text-[#e9edef]" id="chat-title">اختر مجموعة</h1>
-        <p class="text-xs text-[#00a884]">متصل بالسيرفر</p>
-      </div>
-      <div class="flex items-center gap-3 text-[#8696a0]">
-        <button id="btn-audio-call" class="hover:text-white p-1" title="مكالمة صوتية"><i data-lucide="phone"></i></button>
-        <button id="btn-video-call" class="hover:text-white p-1" title="مكالمة فيديو"><i data-lucide="video"></i></button>
-        <button id="btn-add-group" class="hover:text-white p-1" title="إنشاء/دخول جروب"><i data-lucide="users-round"></i></button>
-      </div>
-    </div>
+    <div id="chat-container"></div>
 
-    <div id="video-container" class="hidden relative bg-black h-56 w-full border-b border-gray-700 flex flex-col justify-between">
-      <div class="flex-1 flex">
-        <video id="remote-video" autoplay playsinline class="w-1/2 h-full object-cover border-l border-gray-600"></video>
-        <video id="local-video" autoplay playsinline muted class="w-1/2 h-full object-cover"></video>
-      </div>
-      <div class="bg-[#111b21] p-2 flex justify-center items-center gap-4 border-t border-gray-800">
-        <button id="btn-mute" class="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600" title="كتم الصوت"><i data-lucide="mic" class="w-4 h-4"></i></button>
-        <button id="btn-end-call" class="bg-red-600 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-red-700">إنهاء</button>
-      </div>
-    </div>
+    <form id="form">
+        <input id="input" autocomplete="off" placeholder="اكتب رسالة..." required />
+        <button id="send-btn">إرسال</button>
+    </form>
 
-    <div id="messages-box" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0b141a]"></div>
+    <script>
+        const socket = io();
 
-    <div class="p-3 bg-[#111b21] border-t border-[#222d34] flex items-center gap-2">
-      <input type="file" id="image-input" accept="image/*" class="hidden" />
-      <button id="btn-image" class="p-2.5 bg-[#202c33] text-[#8696a0] rounded-lg hover:text-white" title="إرسال صورة">
-        <i data-lucide="image" class="w-5 h-5"></i>
-      </button>
-      <input type="text" id="message-input" placeholder="اكتب رسالة..." class="flex-1 bg-[#2a3942] text-white p-2.5 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-[#00a884]"/>
-      <button id="btn-send" class="p-2.5 bg-[#00a884] text-[#111b21] rounded-lg hover:bg-[#029071]"><i data-lucide="send" class="w-5 h-5"></i></button>
-    </div>
-
-  </div>
-
-  <script>
-    lucide.createIcons();
-    const socket = io();
-    
-    // إعداد الـ Peer بدون خادم خارجي معقد
-    const peer = new Peer();
-    let myPeerId = null;
-
-    peer.on('open', (id) => { 
-      myPeerId = id; 
-      console.log("My Peer ID is: " + id);
-    });
-
-    let currentGroup = "";
-    let userName = prompt("ادخل اسمك:") || "مستخدم_" + Math.floor(Math.random() * 1000);
-    let localStream = null;
-    let currentCall = null;
-
-    const messagesBox = document.getElementById('messages-box');
-    const messageInput = document.getElementById('message-input');
-    const imageInput = document.getElementById('image-input');
-    
-    document.getElementById('btn-add-group').onclick = () => {
-      const group = prompt("ادخل اسم المجموعة:");
-      if (group) {
-        currentGroup = group;
-        document.getElementById('chat-title').innerText = "جروب: " + currentGroup;
-        socket.emit('join_group', currentGroup);
-      }
-    };
-
-    function sendMessage() {
-      if (messageInput.value.trim() && currentGroup) {
-        socket.emit('send_message', { groupName: currentGroup, sender: userName, message: messageInput.value.trim(), image: null, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
-        messageInput.value = '';
-      }
-    }
-    document.getElementById('btn-send').onclick = sendMessage;
-    messageInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-
-    document.getElementById('btn-image').onclick = () => imageInput.click();
-    imageInput.onchange = function() {
-      const file = this.files[0];
-      if (file && currentGroup) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          socket.emit('send_message', { groupName: currentGroup, sender: userName, message: '', image: e.target.result, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    socket.on('receive_message', appendMessage);
-    socket.on('load_messages', (msgs) => { messagesBox.innerHTML = ''; msgs.forEach(appendMessage); });
-
-    function appendMessage(data) {
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `flex flex-col max-w-[75%] p-2.5 rounded-xl text-sm ${data.sender === userName ? 'bg-[#005c4b] ml-auto rounded-br-none' : 'bg-[#202c33] mr-auto rounded-bl-none'}`;
-      let contentHtml = '';
-      if (data.message) contentHtml += `<span class="text-white break-words">${data.message}</span>`;
-      if (data.image) contentHtml += `<img src="${data.image}" class="rounded-lg mt-1 max-w-full h-auto" style="max-height: 200px;" />`;
-      msgDiv.innerHTML = `<span class="text-[10px] text-gray-400 font-bold mb-0.5">${data.sender}</span>${contentHtml}<span class="text-[9px] text-gray-300 self-end mt-1">${data.time}</span>`;
-      messagesBox.appendChild(msgDiv);
-      messagesBox.scrollTop = messagesBox.scrollHeight;
-    }
-
-    const videoContainer = document.getElementById('video-container');
-    const localVideo = document.getElementById('local-video');
-    const remoteVideo = document.getElementById('remote-video');
-
-    async function startCall(videoEnabled) {
-      if (!currentGroup) return alert("ادخل لجروب أولاً!");
-      if (!myPeerId) return alert("جارِ الاتصال بخادم البث، انتظر ثانية واحدة واعذب المحاولة.");
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: videoEnabled, audio: true });
-        localVideo.srcObject = localStream;
-        videoContainer.classList.remove('hidden');
-        socket.emit('start_call', { groupName: currentGroup, peerId: myPeerId, sender: userName });
-      } catch (err) { alert("خطأ في الوسائط: " + err.message); }
-    }
-
-    document.getElementById('btn-audio-call').onclick = () => startCall(false);
-    document.getElementById('btn-video-call').onclick = () => startCall(true);
-
-    // استقبال الطلب عند الطرف الثاني بشكل آمن
-    socket.on('incoming_call', async (data) => {
-      if (data.sender === userName) return; // تجاهل اتصال نفسك
-      
-      if(confirm(`مكالمة واردة من ${data.sender} في الجروب! هل تريد القبول؟`)) {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          localVideo.srcObject = localStream;
-          videoContainer.classList.remove('hidden');
-          
-          currentCall = peer.call(data.peerId, localStream);
-          if (currentCall) {
-            currentCall.on('stream', (remoteStream) => { 
-              remoteVideo.srcObject = remoteStream; 
-            });
-          }
-        } catch (err) { alert("خطأ في قبول المكالمة: " + err.message); }
-      }
-    });
-
-    // الرد التلقائي للطرف الذي بادر بالاتصال عند استلامه للاستجابة
-    peer.on('call', (call) => {
-      currentCall = call;
-      call.answer(localStream);
-      call.on('stream', (remoteStream) => { 
-        remoteVideo.srcObject = remoteStream; 
-      });
-    });
-
-    let isMuted = false;
-    document.getElementById('btn-mute').onclick = () => {
-      if (localStream) {
-        const audioTrack = localStream.getAudioTracks()[0];
-        if (audioTrack) {
-          isMuted = !isMuted;
-          audioTrack.enabled = !isMuted;
-          document.getElementById('btn-mute').innerHTML = isMuted ? '<i data-lucide="mic-off" class="w-4 h-4 text-red-500"></i>' : '<i data-lucide="mic" class="w-4 h-4"></i>';
-          lucide.createIcons();
+        // 1. إدارة اسم المستخدم وحفظه تلقائياً في المتصفح
+        let username = localStorage.getItem('chat_username');
+        if (!username || username.trim() === "") {
+            username = prompt("أدخل اسمك لتبدأ المحادثة:");
+            if (!username) username = "مستخدم مجهول";
+            localStorage.setItem('chat_username', username.trim());
         }
-      }
-    };
 
-    document.getElementById('btn-end-call').onclick = () => {
-      if (localStream) localStream.getTracks().forEach(track => track.stop());
-      if (currentCall) currentCall.close();
-      remoteVideo.srcObject = null;
-      videoContainer.classList.add('hidden');
-    };
-  </script>
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const chatContainer = document.getElementById('chat-container');
+
+        // دالة لإضافة الرسالة على الشاشة
+        function appendMessage(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+
+            // تحديد ما إذا كانت الرسالة مرسلة أو مستلمة
+            if (data.username === username) {
+                messageDiv.classList.add('outgoing');
+            } else {
+                messageDiv.classList.add('incoming');
+            }
+
+            messageDiv.innerHTML = `
+                <span class="sender-name">${data.username}</span>
+                <span class="message-text">${data.text}</span>
+            `;
+
+            chatContainer.appendChild(messageDiv);
+            // النزول تلقائياً لأسفل المحادثة
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 2. تحميل المحادثات القديمة فور فتح الموقع
+        socket.on('load_history', (history) => {
+            chatContainer.innerHTML = ""; // تفريغ الحاوية أولاً
+            history.forEach(msg => {
+                appendMessage(msg);
+            });
+        });
+
+        // إرسال الرسالة عند الضغط على زر إرسال
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value) {
+                const messageData = {
+                    username: username,
+                    text: input.value
+                };
+                socket.emit('send_message', messageData);
+                input.value = '';
+            }
+        });
+
+        // استقبال الرسائل الجديدة لحظياً وعرضها
+        socket.on('receive_message', (data) => {
+            appendMessage(data);
+        });
+    </script>
 </body>
 </html>
