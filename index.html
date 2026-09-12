@@ -3,37 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب - محادثة ومكالمات وصور</title>
+    <title>واتساب - مستخدمون موثقون</title>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { background-color: #0c1317; color: #e9edef; display: flex; height: 100vh; overflow: hidden; }
 
-        /* القائمة الجانبية */
-        .sidebar { width: 350px; background-color: #111b21; border-left: 1px solid #222d34; display: flex; flex-direction: column; }
+        .sidebar { width: 350px; background-color: #111b21; border-left: 1px solid #222d34; display: flex; flex-direction: column; order: 1; }
         .sidebar-header { padding: 15px; background-color: #202c33; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-        .add-friend-box { padding: 10px; background-color: #111b21; display: flex; gap: 5px; border-bottom: 1px solid #222d34; }
-        .add-friend-box input { flex: 1; padding: 8px 12px; background: #2a3942; border: none; border-radius: 5px; color: #fff; outline: none; font-size: 13px; }
-        .add-friend-box button { background-color: #00a884; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
         
         .contacts-list { flex: 1; overflow-y: auto; }
         .contact-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #222d34; cursor: pointer; transition: background 0.2s; }
         .contact-item:hover, .contact-item.active { background-color: #2a3942; }
-        .contact-avatar { width: 45px; height: 45px; background-color: #00a884; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; color: white; margin-left: 12px; }
+        .contact-avatar { width: 45px; height: 45px; background-color: #00a884; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; color: white; margin-left: 12px; position: relative; }
+        
+        /* علامة التوثيق الخضراء */
+        .verified-badge { position: absolute; bottom: 0; left: 0; background: #00a884; color: white; font-size: 10px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #111b21; }
+
         .contact-info { flex: 1; }
         .contact-name { font-size: 15px; color: #f1f1f1; margin-bottom: 3px; }
         .contact-status { font-size: 12px; color: #8696a0; }
 
-        /* نافذة الدردشة */
-        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; order: 2; }
         .chat-header { padding: 12px 20px; background-color: #202c33; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #222d34; }
         .chat-header-left { display: flex; align-items: center; gap: 12px; }
         .chat-header-avatar { width: 40px; height: 40px; background-color: #005c4b; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; }
         .chat-header-name { font-size: 16px; font-weight: bold; color: #f1f1f1; }
         
-        /* أزرار المكالمات في الهيدر */
-        .call-actions { display: flex; gap: 15px; color: #8696a0; font-size: 18px; cursor: pointer; }
+        .call-actions { display: flex; gap: 20px; color: #8696a0; font-size: 18px; cursor: pointer; }
         .call-actions i:hover { color: #00a884; }
 
         #chat-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background-image: radial-gradient(#1f2c34 1px, transparent 1px); background-size: 20px 20px; }
@@ -51,7 +49,6 @@
         #send-btn { background-color: #00a884; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         #send-btn:hover { background-color: #008f72; }
 
-        /* نافذة تسجيل الدخول */
         #login-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; }
         .login-box { background: #222d34; padding: 30px; border-radius: 12px; width: 320px; text-align: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .login-box h3 { margin-bottom: 15px; }
@@ -61,38 +58,21 @@
 </head>
 <body>
 
-    <!-- نافذة تسجيل الدخول -->
+    <!-- نافذة تسجيل الدخول والتوثيق الإلزامي -->
     <div id="login-modal">
         <div class="login-box">
-            <h3>تسجيل الدخول للتطبيق</h3>
-            <input type="text" id="username-input" placeholder="اكتب اسمك الحقيقي..." />
-            <button onclick="saveUsername()">دخول</button>
+            <h3>توثيق حساب جديد</h3>
+            <input type="text" id="username-input" placeholder="ادخل اسمك للتوثيق..." />
+            <button onclick="verifyAndLogin()">توثيق ودخول</button>
         </div>
     </div>
 
-    <!-- القائمة الجانبية للمستخدمين -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <span>المستخدمون المتصلون</span>
-            <span id="logged-user-name" style="font-size: 12px; color: #00a884;"></span>
-        </div>
-        
-        <div class="add-friend-box">
-            <input type="text" id="new-friend-input" placeholder="إضافة اسم صديق..." />
-            <button onclick="addFriend()">إضافة</button>
-        </div>
-
-        <div class="contacts-list" id="contacts-list"></div>
-    </div>
-
-    <!-- نافذة المحادثة -->
     <div class="chat-area">
         <div class="chat-header">
             <div class="chat-header-left">
-                <div class="chat-header-avatar" id="active-chat-avatar">#</div>
-                <div class="chat-header-name" id="active-chat-title">اختر مستخدماً للبدء</div>
+                <div class="chat-header-avatar" id="active-chat-avatar">🌍</div>
+                <div class="chat-header-name" id="active-chat-title">دردشة عامة (الكل)</div>
             </div>
-            <!-- ميزة المكالمات -->
             <div class="call-actions">
                 <i class="fas fa-video" title="مكالمة فيديو" onclick="startCall('فيديو')"></i>
                 <i class="fas fa-phone-alt" title="مكالمة صوتية" onclick="startCall('صوتية')"></i>
@@ -100,10 +80,9 @@
         </div>
 
         <div id="chat-container">
-            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر حساباً من القائمة وابدأ المراسلة أو إرسال الصور</div>
+            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر مستخدماً موثقاً وابدأ المحادثة أو إرسال الصور</div>
         </div>
 
-        <!-- خانة الكتابة وإرسال الصور -->
         <form id="form">
             <label class="file-label" title="إرسال صورة">
                 <i class="fas fa-image"></i>
@@ -112,6 +91,14 @@
             <input id="input" autocomplete="off" placeholder="اكتب رسالة..." />
             <button id="send-btn">إرسال</button>
         </form>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span>المستخدمون الموثقون</span>
+            <span id="logged-user-name" style="font-size: 12px; color: #00a884;"></span>
+        </div>
+        <div class="contacts-list" id="contacts-list"></div>
     </div>
 
     <script>
@@ -125,25 +112,25 @@
         const loggedUserName = document.getElementById('logged-user-name');
 
         if (username) {
-            loginModal.style.display = 'none';
-            loggedUserName.innerText = "الحساب: " + username;
-            socket.emit('register_user', username);
+            socket.emit('verify_user', username);
         }
 
-        function saveUsername() {
+        function verifyAndLogin() {
             const val = usernameInput.value.trim();
             if (!val) {
-                alert("يرجى إدخال اسم صحيح!");
+                alert("يرجى كتابة اسم صحيح للتوثيق!");
                 return;
             }
-            username = val;
-            localStorage.setItem('chat_username', username);
-            socket.emit('register_user', username);
-            loginModal.style.display = 'none';
-            loggedUserName.innerText = "الحساب: " + username;
+            socket.emit('verify_user', val);
         }
 
-        // استقبال تحديثات المستخدمين المتصلين من السيرفر
+        socket.on('auth_success', (verifiedName) => {
+            username = verifiedName;
+            localStorage.setItem('chat_username', username);
+            loginModal.style.display = 'none';
+            loggedUserName.innerText = "حساب موثق: " + username;
+        });
+
         socket.on('update_users', (users) => {
             allUsers = users;
             renderUsers();
@@ -153,7 +140,6 @@
             const list = document.getElementById('contacts-list');
             list.innerHTML = "";
             
-            // خيار عام للكل
             const generalItem = document.createElement('div');
             generalItem.classList.add('contact-item');
             if (currentChat === "الكل") generalItem.classList.add('active');
@@ -173,16 +159,19 @@
             list.appendChild(generalItem);
 
             allUsers.forEach(user => {
-                if (user === username) return; // لا تعرض نفسك في قائمة الأصدقاء
+                if (user === username) return;
                 const item = document.createElement('div');
                 item.classList.add('contact-item');
                 if (user === currentChat) item.classList.add('active');
                 
                 item.innerHTML = `
-                    <div class="contact-avatar">${user.charAt(0)}</div>
+                    <div class="contact-avatar">
+                        ${user.charAt(0)}
+                        <div class="verified-badge"><i class="fas fa-check" style="font-size: 8px;"></i></div>
+                    </div>
                     <div class="contact-info">
                         <div class="contact-name">${user}</div>
-                        <div class="contact-status">متصل الآن</div>
+                        <div class="contact-status">مستخدم موثق ✓</div>
                     </div>
                 `;
                 item.onclick = () => {
@@ -195,26 +184,15 @@
             });
         }
 
-        function addFriend() {
-            const friendInput = document.getElementById('new-friend-input');
-            const newFriend = friendInput.value.trim();
-            if (newFriend) {
-                socket.emit('register_user', newFriend);
-                friendInput.value = "";
-            }
-        }
-
-        // ميزة إرسال الصور وتحويلها لـ Base64
         function sendImage(event) {
             const file = event.target.files[0];
             if (file && username) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    const imageData = e.target.result;
                     socket.emit('send_message', {
                         username: username,
                         text: "",
-                        image: imageData,
+                        image: e.target.result,
                         chat: currentChat
                     });
                 };
@@ -222,19 +200,18 @@
             }
         }
 
-        // ميزة بدء مكالمة (صوتية أو فيديو)
         function startCall(type) {
             if (currentChat === "الكل") {
-                alert("يرجى اختيار صديق معين لبدء المكالمة!");
+                alert("اختر مستخدماً موثقاً محدداً من القائمة للاتصال به!");
                 return;
             }
-            alert(`جاري بدء مكالمة ${type} مع ${currentChat}... (تم تفعيل زر الاتصال بنجاح)`);
+            alert(`جاري الاتصال بـ ${currentChat}...`);
             socket.emit('call_user', { from: username, to: currentChat, type: type });
         }
 
         socket.on('incoming_call', (data) => {
             if (data.to === username) {
-                alert(`تتلقى مكالمة ${data.type} من المستخدم: ${data.from}`);
+                alert(`مكالمة واردة من الحساب الموثق: ${data.from}`);
             }
         });
 
@@ -252,13 +229,9 @@
                 messageDiv.classList.add('incoming');
             }
 
-            let contentHTML = `<span class="sender-name">${data.username}</span>`;
-            if (data.text) {
-                contentHTML += `<span>${data.text}</span>`;
-            }
-            if (data.image) {
-                contentHTML += `<img src="${data.image}" alt="صورة مرسلة">`;
-            }
+            let contentHTML = `<span class="sender-name">${data.username} ✓</span>`;
+            if (data.text) contentHTML += `<span>${data.text}</span>`;
+            if (data.image) contentHTML += `<img src="${data.image}" alt="صورة">`;
 
             messageDiv.innerHTML = contentHTML;
             chatContainer.appendChild(messageDiv);
