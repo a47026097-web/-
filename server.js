@@ -7,30 +7,44 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// تقديم الملفات الثابتة من مجلد المشروع
+// تقديم الملفات الثابتة
 app.use(express.static(path.join(__dirname)));
 
-// مصفوفة لحفظ الرسائل مؤقتاً في الذاكرة لكي لا تضيع عند مغادرة الدردشة
+// مصفوفة لحفظ الرسائل (بحد أقصى 100 رسالة)
 let messages = [];
+
+// قائمة المستخدمين المسجلين النشطين
+let registeredUsers = [];
 
 io.on('connection', (socket) => {
     console.log('مستخدم متصل جديد...');
 
-    // عند اتصال المستخدم، أرسل له سجل الرسائل القديمة فوراً
+    // إرسال السجل للمستخدم فور دخوله
     socket.emit('load_history', messages);
+    socket.emit('update_users', registeredUsers);
 
-    // استقبال رسالة جديدة من أي مستخدم
+    // تسجيل مستخدم جديد
+    socket.on('register_user', (username) => {
+        if (username && !registeredUsers.includes(username)) {
+            registeredUsers.push(username);
+            io.emit('update_users', registeredUsers);
+        }
+    });
+
+    // استقبال رسالة نصية أو صورة
     socket.on('send_message', (data) => {
-        // حفظ الرسالة في المصفوفة
+        // data = { username, text, image, chat, type }
         messages.push(data);
-        
-        // إذا زادت الرسائل عن 100 رسالة، احذف القديمة لكي يبقى السيرفر خفيفاً
         if (messages.length > 100) {
             messages.shift();
         }
-
-        // إرسال الرسالة لجميع المتصلين (بمن فيهم المرسل)
+        // إرسال الرسالة للجميع
         io.emit('receive_message', data);
+    });
+
+    // إشارات المكالمات (اتصال WebRTC مبسط بين الأطراف)
+    socket.on('call_user', (data) => {
+        io.emit('incoming_call', data);
     });
 
     socket.on('disconnect', () => {
