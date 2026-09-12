@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب - محادثة ومكالمات</title>
+    <title>واتساب - مكالمات حقيقية وصور</title>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -17,14 +17,13 @@
         .contact-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #222d34; cursor: pointer; transition: background 0.2s; }
         .contact-item:hover, .contact-item.active { background-color: #2a3942; }
         .contact-avatar { width: 45px; height: 45px; background-color: #00a884; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 18px; color: white; margin-left: 12px; position: relative; }
-        
         .verified-badge { position: absolute; bottom: 0; left: 0; background: #00a884; color: white; font-size: 10px; width: 15px; height: 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #111b21; }
 
         .contact-info { flex: 1; }
         .contact-name { font-size: 15px; color: #f1f1f1; margin-bottom: 3px; }
         .contact-status { font-size: 12px; color: #8696a0; }
 
-        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; order: 2; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; order: 2; position: relative; }
         .chat-header { padding: 12px 20px; background-color: #202c33; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #222d34; }
         .chat-header-left { display: flex; align-items: center; gap: 12px; }
         .chat-header-avatar { width: 40px; height: 40px; background-color: #005c4b; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; }
@@ -46,7 +45,12 @@
         .file-label { color: #8696a0; font-size: 20px; cursor: pointer; padding: 5px; }
         .file-label:hover { color: #00a884; }
         #send-btn { background-color: #00a884; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        #send-btn:hover { background-color: #008f72; }
+
+        /* نافذة عرض الفيديو والصوت أثناء المكالمة */
+        #video-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .video-box { display: flex; gap: 10px; justify-content: center; align-items: center; width: 80%; height: 70%; }
+        video { width: 45%; height: 100%; background: #000; border-radius: 8px; object-fit: cover; }
+        .end-call-btn { margin-top: 20px; background: #ff4d4d; color: white; border: none; padding: 12px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; font-size: 16px; }
 
         #login-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; }
         .login-box { background: #222d34; padding: 30px; border-radius: 12px; width: 320px; text-align: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -65,6 +69,16 @@
         </div>
     </div>
 
+    <!-- نافذة المكالمة المرئية/الصوتية -->
+    <div id="video-container">
+        <h3 id="call-status-text" style="color: white; margin-bottom: 15px;">جاري الاتصال...</h3>
+        <div class="video-box">
+            <video id="local-video" autoplay muted playsinline></video>
+            <video id="remote-video" autoplay playsinline></video>
+        </div>
+        <button class="end-call-btn" onclick="endCall()">إنهاء المكالمة</button>
+    </div>
+
     <div class="chat-area">
         <div class="chat-header">
             <div class="chat-header-left">
@@ -72,13 +86,13 @@
                 <div class="chat-header-name" id="active-chat-title">دردشة عامة (الكل)</div>
             </div>
             <div class="call-actions">
-                <i class="fas fa-video" title="مكالمة فيديو" onclick="startCall('فيديو')"></i>
-                <i class="fas fa-phone-alt" title="مكالمة صوتية" onclick="startCall('صوتية')"></i>
+                <i class="fas fa-video" title="مكالمة فيديو" onclick="startCall('video')"></i>
+                <i class="fas fa-phone-alt" title="مكالمة صوتية" onclick="startCall('audio')"></i>
             </div>
         </div>
 
         <div id="chat-container">
-            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر مستخدماً موثقاً وابدأ المحادثة أو الاتصال</div>
+            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر مستخدماً موثقاً للبدء</div>
         </div>
 
         <form id="form">
@@ -105,6 +119,10 @@
         let allUsers = [];
         let currentChat = "الكل";
 
+        let peerConnection;
+        let localStream;
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
         const loginModal = document.getElementById('login-modal');
         const usernameInput = document.getElementById('username-input');
         const loggedUserName = document.getElementById('logged-user-name');
@@ -115,10 +133,7 @@
 
         function verifyAndLogin() {
             const val = usernameInput.value.trim();
-            if (!val) {
-                alert("يرجى كتابة اسم صحيح للتوثيق!");
-                return;
-            }
+            if (!val) return alert("يرجى كتابة اسم صحيح!");
             socket.emit('verify_user', val);
         }
 
@@ -161,7 +176,6 @@
                 const item = document.createElement('div');
                 item.classList.add('contact-item');
                 if (user === currentChat) item.classList.add('active');
-                
                 item.innerHTML = `
                     <div class="contact-avatar">
                         ${user.charAt(0)}
@@ -169,7 +183,7 @@
                     </div>
                     <div class="contact-info">
                         <div class="contact-name">${user}</div>
-                        <div class="contact-status">مستخدم موثق ✓</div>
+                        <div class="contact-status">موثق ✓</div>
                     </div>
                 `;
                 item.onclick = () => {
@@ -182,43 +196,105 @@
             });
         }
 
+        async function startCall(type) {
+            if (currentChat === "الكل") return alert("اختر مستخدماً محدداً للاتصال!");
+            
+            document.getElementById('video-container').style.display = 'flex';
+            document.getElementById('call-status-text').innerText = `جاري الاتصال بـ ${currentChat}...`;
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: type === 'video', 
+                    audio: true 
+                });
+                document.getElementById('local-video').srcObject = localStream;
+
+                createPeerConnection();
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                socket.emit('call_user', { to: currentChat, offer: offer, from: username, type: type });
+            } catch (err) {
+                alert("تعذر الوصول إلى الكاميرا أو الميكروفون!");
+                endCall();
+            }
+        }
+
+        socket.on('incoming_call', async (data) => {
+            if (confirm(`مكالمة واردة من ${data.from} (${data.type}). هل تريد الرد؟`)) {
+                currentChat = data.from;
+                document.getElementById('video-container').style.display = 'flex';
+                document.getElementById('call-status-text').innerText = `متصل مع ${data.from}`;
+
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: data.type === 'video', 
+                        audio: true 
+                    });
+                    document.getElementById('local-video').srcObject = localStream;
+
+                    createPeerConnection();
+                    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+
+                    socket.emit('make_answer', { to: data.from, answer: answer, from: username });
+                } catch (err) {
+                    endCall();
+                }
+            }
+        });
+
+        socket.on('call_answered', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            document.getElementById('call-status-text').innerText = `متصل الآن`;
+        });
+
+        socket.on('ice_candidate', async (data) => {
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfig);
+            
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                document.getElementById('remote-video').srcObject = event.streams[0];
+            };
+        }
+
+        function endCall() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            document.getElementById('video-container').style.display = 'none';
+        }
+
         function sendImage(event) {
             const file = event.target.files[0];
             if (file && username) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    socket.emit('send_message', {
-                        username: username,
-                        text: "",
-                        image: e.target.result,
-                        chat: currentChat
-                    });
+                    socket.emit('send_message', { username, text: "", image: e.target.result, chat: currentChat });
                 };
                 reader.readAsDataURL(file);
             }
         }
-
-        // تفعيل طلب المكالمة وإرسالها للسيرفر لتنبيه الطرف الآخر فوراً
-        function startCall(type) {
-            if (currentChat === "الكل") {
-                alert("يرجى اختيار مستخدم معين من القائمة لبدء المكالمة معه!");
-                return;
-            }
-            if (confirm(`هل تريد حقاً بدء مكالمة ${type} مع المستخدم ${currentChat}؟`)) {
-                socket.emit('call_user', { from: username, to: currentChat, type: type });
-                alert(`جاري استدعاء ${currentChat}...`);
-            }
-        }
-
-        // استقبال التنبيه عند وصول مكالمة للمستخدم المحدد
-        socket.on('incoming_call', (data) => {
-            if (data.to === username) {
-                const accept = confirm(`تتلقى مكالمة ${data.type} واردة من الحساب الموثق: ${data.from}\nهل تريد الرد؟`);
-                if (accept) {
-                    alert("تم فتح خط الاتصال بنجاح!");
-                }
-            }
-        });
 
         const form = document.getElementById('form');
         const input = document.getElementById('input');
@@ -227,12 +303,7 @@
         function appendMessage(data) {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
-
-            if (data.username === username) {
-                messageDiv.classList.add('outgoing');
-            } else {
-                messageDiv.classList.add('incoming');
-            }
+            messageDiv.classList.add(data.username === username ? 'outgoing' : 'incoming');
 
             let contentHTML = `<span class="sender-name">${data.username} ✓</span>`;
             if (data.text) contentHTML += `<span>${data.text}</span>`;
@@ -251,12 +322,7 @@
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             if (input.value.trim() && username) {
-                socket.emit('send_message', {
-                    username: username,
-                    text: input.value,
-                    image: null,
-                    chat: currentChat
-                });
+                socket.emit('send_message', { username, text: input.value, image: null, chat: currentChat });
                 input.value = '';
             }
         });
