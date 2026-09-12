@@ -4,12 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>محادثة خاصة وآمنة</title>
-    <!-- مكتبة Socket.io للاتصال الفوري -->
     <script src="/socket.io/socket.io.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
         body { background-color: #efeae2; display: flex; flex-direction: column; height: 100vh; }
-        header { background-color: #00a884; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; }
+        header { background-color: #00a884; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        #user-info { font-size: 13px; background: #008f72; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        
+        /* نافذة اختيار/إضافة المستخدمين والأصدقاء */
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 320px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .modal-content h3 { margin-bottom: 15px; color: #333; }
+        .modal-content input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; outline: none; }
+        .user-list-box { max-height: 150px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; border-radius: 5px; text-align: right; }
+        .user-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        .user-item:hover { background-color: #f5f5f5; }
+        .modal-btn { background-color: #00a884; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold; }
+
         #chat-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         .message { max-width: 70%; padding: 10px 15px; border-radius: 8px; word-wrap: break-word; font-size: 14px; position: relative; }
         .message.incoming { background-color: #ffffff; align-self: flex-start; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
@@ -24,7 +35,23 @@
 </head>
 <body>
 
-    <header>محادثة خاصة عائلية</header>
+    <!-- نافذة اختيار اسم المستخدم أو الأصدقاء المحفوظين -->
+    <div id="modal">
+        <div class="modal-content">
+            <h3>تسجيل الدخول / اختيار الحساب</h3>
+            <input type="text" id="search-friend" placeholder="ابحث عن اسم أو أضف جديد..." oninput="filterUsers()" />
+            <div class="user-list-box" id="saved-users-list">
+                <!-- يتم تعبئتها تلقائياً -->
+            </div>
+            <input type="text" id="new-username-input" placeholder="أو اكتب اسم جديد..." />
+            <button class="modal-btn" onclick="selectUser()">دخول للمحادثة</button>
+        </div>
+    </div>
+
+    <header>
+        <span>محادثة خاصة عائلية</span>
+        <span id="user-info" onclick="openModal()" title="تغيير المستخدم">الحساب: <span id="current-user-display"></span></span>
+    </header>
 
     <div id="chat-container"></div>
 
@@ -35,25 +62,75 @@
 
     <script>
         const socket = io();
-
-        // 1. إدارة اسم المستخدم وحفظه تلقائياً في المتصفح
         let username = localStorage.getItem('chat_username');
-        if (!username || username.trim() === "") {
-            username = prompt("أدخل اسمك لتبدأ المحادثة:");
-            if (!username) username = "مستخدم مجهول";
-            localStorage.setItem('chat_username', username.trim());
+        let savedUsers = JSON.parse(localStorage.getItem('saved_friends_list')) || ["أحمد", "فاطمة", "محمد", "مريم"];
+
+        const modal = document.getElementById('modal');
+        const currentUserDisplay = document.getElementById('current-user-display');
+        const savedUsersList = document.getElementById('saved-users-list');
+        const newUsernameInput = document.getElementById('new-username-input');
+        const searchFriendInput = document.getElementById('search-friend');
+
+        // التحقق من وجود اسم مسجل مسبقاً
+        if (username) {
+            modal.style.display = 'none';
+            currentUserDisplay.innerText = username;
+        } else {
+            modal.style.display = 'flex';
+            renderUserList(savedUsers);
+        }
+
+        function renderUserList(users) {
+            savedUsersList.innerHTML = '';
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.classList.add('user-item');
+                div.innerText = user;
+                div.onclick = () => {
+                    newUsernameInput.value = user;
+                };
+                savedUsersList.appendChild(div);
+            });
+        }
+
+        function filterUsers() {
+            const query = searchFriendInput.value.toLowerCase();
+            const filtered = savedUsers.filter(u => u.toLowerCase().includes(query));
+            renderUserList(filtered);
+        }
+
+        function selectUser() {
+            const chosenName = newUsernameInput.value.trim() || searchFriendInput.value.trim();
+            if (!chosenName) {
+                alert("يرجى اختيار اسم أو كتابة اسم جديد!");
+                return;
+            }
+            username = chosenName;
+            localStorage.setItem('chat_username', username);
+
+            // حفظ الاسم ضمن قائمة الأصدقاء الدائمين إذا لم يكن موجوداً
+            if (!savedUsers.includes(username)) {
+                savedUsers.push(username);
+                localStorage.setItem('saved_friends_list', JSON.stringify(savedUsers));
+            }
+
+            currentUserDisplay.innerText = username;
+            modal.style.display = 'none';
+        }
+
+        function openModal() {
+            modal.style.display = 'flex';
+            renderUserList(savedUsers);
         }
 
         const form = document.getElementById('form');
         const input = document.getElementById('input');
         const chatContainer = document.getElementById('chat-container');
 
-        // دالة لإضافة الرسالة على الشاشة
         function appendMessage(data) {
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
 
-            // تحديد ما إذا كانت الرسالة مرسلة أو مستلمة
             if (data.username === username) {
                 messageDiv.classList.add('outgoing');
             } else {
@@ -66,22 +143,19 @@
             `;
 
             chatContainer.appendChild(messageDiv);
-            // النزول تلقائياً لأسفل المحادثة
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // 2. تحميل المحادثات القديمة فور فتح الموقع
         socket.on('load_history', (history) => {
-            chatContainer.innerHTML = ""; // تفريغ الحاوية أولاً
+            chatContainer.innerHTML = "";
             history.forEach(msg => {
                 appendMessage(msg);
             });
         });
 
-        // إرسال الرسالة عند الضغط على زر إرسال
         form.addEventListener('submit', (e) => {
             e.preventDefault();
-            if (input.value) {
+            if (input.value && username) {
                 const messageData = {
                     username: username,
                     text: input.value
@@ -91,7 +165,6 @@
             }
         });
 
-        // استقبال الرسائل الجديدة لحظياً وعرضها
         socket.on('receive_message', (data) => {
             appendMessage(data);
         });
