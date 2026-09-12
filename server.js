@@ -18,7 +18,7 @@ io.on('connection', (socket) => {
 
     socket.on('verify_user', (username) => {
         if (!username || username.trim() === "") return;
-        verifiedUsers[username] = { socketId: socket.id };
+        verifiedUsers[username] = socket.id;
         socket.emit('auth_success', username);
         io.emit('update_users', Object.keys(verifiedUsers));
     });
@@ -29,14 +29,47 @@ io.on('connection', (socket) => {
         io.emit('receive_message', data);
     });
 
-    // إدارة طلب المكالمة
+    // إرسال إشارات WebRTC للمكالمات الحقيقية
     socket.on('call_user', (data) => {
-        // data: { from, to, type }
-        io.emit('incoming_call', data);
+        // data: { to, offer, from, type }
+        const targetSocketId = verifiedUsers[data.to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('incoming_call', {
+                from: data.from,
+                offer: data.offer,
+                type: data.type
+            });
+        }
+    });
+
+    socket.on('make_answer', (data) => {
+        // data: { to, answer, from }
+        const targetSocketId = verifiedUsers[data.to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('call_answered', {
+                answer: data.answer,
+                from: data.from
+            });
+        }
+    });
+
+    socket.on('ice_candidate', (data) => {
+        const targetSocketId = verifiedUsers[data.to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('ice_candidate', {
+                candidate: data.candidate
+            });
+        }
     });
 
     socket.on('disconnect', () => {
-        console.log('مستخدم غادر.');
+        for (let user in verifiedUsers) {
+            if (verifiedUsers[user] === socket.id) {
+                delete verifiedUsers[user];
+                break;
+            }
+        }
+        io.emit('update_users', Object.keys(verifiedUsers));
     });
 });
 
