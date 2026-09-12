@@ -9,7 +9,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
         body { background-color: #0c1317; color: #e9edef; display: flex; height: 100vh; overflow: hidden; }
 
-        /* القائمة الجانبية (الأصدقاء والمحادثات) */
         .sidebar { width: 350px; background-color: #111b21; border-left: 1px solid #222d34; display: flex; flex-direction: column; }
         .sidebar-header { padding: 15px; background-color: #202c33; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         .add-friend-box { padding: 10px; background-color: #111b21; display: flex; gap: 5px; border-bottom: 1px solid #222d34; }
@@ -24,7 +23,6 @@
         .contact-name { font-size: 15px; color: #f1f1f1; margin-bottom: 3px; }
         .contact-status { font-size: 12px; color: #8696a0; }
 
-        /* نافذة الدردشة الرئيسية */
         .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; }
         .chat-header { padding: 12px 20px; background-color: #202c33; display: flex; align-items: center; border-bottom: 1px solid #222d34; }
         .chat-header-avatar { width: 40px; height: 40px; background-color: #005c4b; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; margin-left: 12px; }
@@ -42,7 +40,6 @@
         #send-btn { background-color: #00a884; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         #send-btn:hover { background-color: #008f72; }
 
-        /* نافذة إدخال الاسم الأولية */
         #login-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; }
         .login-box { background: #222d34; padding: 30px; border-radius: 12px; width: 320px; text-align: center; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .login-box h3 { margin-bottom: 15px; }
@@ -52,42 +49,36 @@
 </head>
 <body>
 
-    <!-- نافذة تسجيل الاسم الأولية -->
     <div id="login-modal">
         <div class="login-box">
             <h3>تسجيل الدخول للتطبيق</h3>
-            <input type="text" id="username-input" placeholder="اكتب اسمك هنا..." />
-            <button onclick="saveUsername()">دخول</button>
+            <input type="text" id="username-input" placeholder="اكتب اسمك الحقيقي..." />
+            <button onclick="saveUsername()">دخول وتوثيق الحساب</button>
         </div>
     </div>
 
-    <!-- القائمة الجانبية (الأصدقاء) -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <span>المحادثات والأصدقاء</span>
+            <span>المستخدمون المسجلون</span>
             <span id="logged-user-name" style="font-size: 12px; color: #00a884;"></span>
         </div>
         
-        <!-- خانة إضافة صديق جديد -->
         <div class="add-friend-box">
-            <input type="text" id="new-friend-input" placeholder="اسم صديق جديد..." />
+            <input type="text" id="new-friend-input" placeholder="إضافة مستخدم مسجل..." />
             <button onclick="addFriend()">إضافة</button>
         </div>
 
-        <div class="contacts-list" id="contacts-list">
-            <!-- يتم تعبئة الأصدقاء هنا ديناميكياً -->
-        </div>
+        <div class="contacts-list" id="contacts-list"></div>
     </div>
 
-    <!-- نافذة الشات الكبيرة -->
     <div class="chat-area">
         <div class="chat-header">
             <div class="chat-header-avatar" id="active-chat-avatar">#</div>
-            <div class="chat-header-name" id="active-chat-title">اختر صديقاً لبدء المحادثة</div>
+            <div class="chat-header-name" id="active-chat-title">اختر مستخدماً للبدء</div>
         </div>
 
         <div id="chat-container">
-            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر شخصاً من القائمة على اليسار وابدأ المراسلة الفورية</div>
+            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر حساباً مسجلاً من القائمة وابدأ المحادثة</div>
         </div>
 
         <form id="form">
@@ -99,8 +90,10 @@
     <script>
         const socket = io();
         let username = localStorage.getItem('chat_username');
-        let friends = JSON.parse(localStorage.getItem('chat_friends')) || ["العائلة", "أحمد", "فاطمة"];
-        let currentChat = "العائلة"; // المحادثة الافتتاحية
+        
+        // لا توجد أي أسماء وهمية، القائمة تبدأ فارغة تماماً وتعتمد على المستخدمين الحقيقيين المسجلين فقط
+        let registeredUsers = JSON.parse(localStorage.getItem('registered_users_list')) || [];
+        let currentChat = "";
 
         const loginModal = document.getElementById('login-modal');
         const usernameInput = document.getElementById('username-input');
@@ -109,6 +102,10 @@
         if (username) {
             loginModal.style.display = 'none';
             loggedUserName.innerText = "الحساب: " + username;
+            if (!registeredUsers.includes(username)) {
+                registeredUsers.push(username);
+                localStorage.setItem('registered_users_list', JSON.stringify(registeredUsers));
+            }
         }
 
         function saveUsername() {
@@ -119,31 +116,43 @@
             }
             username = val;
             localStorage.setItem('chat_username', username);
+            
+            if (!registeredUsers.includes(username)) {
+                registeredUsers.push(username);
+                localStorage.setItem('registered_users_list', JSON.stringify(registeredUsers));
+            }
+
             loginModal.style.display = 'none';
             loggedUserName.innerText = "الحساب: " + username;
+            renderUsers();
         }
 
-        // عرض الأصدقاء في القائمة الجانبية
-        function renderFriends() {
+        function renderUsers() {
             const list = document.getElementById('contacts-list');
             list.innerHTML = "";
-            friends.forEach(friend => {
+            
+            if (registeredUsers.length === 0) {
+                list.innerHTML = `<div style="padding: 20px; text-align: center; color: #8696a0; font-size: 13px;">لا يوجد مستخدمون مسجلون حالياً</div>`;
+                return;
+            }
+
+            registeredUsers.forEach(user => {
                 const item = document.createElement('div');
                 item.classList.add('contact-item');
-                if (friend === currentChat) item.classList.add('active');
+                if (user === currentChat) item.classList.add('active');
                 
                 item.innerHTML = `
-                    <div class="contact-avatar">${friend.charAt(0)}</div>
+                    <div class="contact-avatar">${user.charAt(0)}</div>
                     <div class="contact-info">
-                        <div class="contact-name">${friend}</div>
-                        <div class="contact-status">انقر للمراسلة</div>
+                        <div class="contact-name">${user}</div>
+                        <div class="contact-status">مستخدم مسجل</div>
                     </div>
                 `;
                 item.onclick = () => {
-                    currentChat = friend;
-                    document.getElementById('active-chat-title').innerText = "محادثة مع: " + friend;
-                    document.getElementById('active-chat-avatar').innerText = friend.charAt(0);
-                    renderFriends();
+                    currentChat = user;
+                    document.getElementById('active-chat-title').innerText = "محادثة مع: " + user;
+                    document.getElementById('active-chat-avatar').innerText = user.charAt(0);
+                    renderUsers();
                 };
                 list.appendChild(item);
             });
@@ -151,18 +160,18 @@
 
         function addFriend() {
             const friendInput = document.getElementById('new-friend-input');
-            const newFriend = friendInput.value.trim();
-            if (newFriend && !friends.includes(newFriend)) {
-                friends.push(newFriend);
-                localStorage.setItem('chat_friends', JSON.stringify(friends));
+            const newUser = friendInput.value.trim();
+            if (newUser && !registeredUsers.includes(newUser)) {
+                registeredUsers.push(newUser);
+                localStorage.setItem('registered_users_list', JSON.stringify(registeredUsers));
                 friendInput.value = "";
-                renderFriends();
+                renderUsers();
+            } else if (registeredUsers.includes(newUser)) {
+                alert("هذا المستخدم موجود مسبقاً في القائمة!");
             }
         }
 
-        renderFriends();
-        document.getElementById('active-chat-title').innerText = "محادثة مع: " + currentChat;
-        document.getElementById('active-chat-avatar').innerText = currentChat.charAt(0);
+        renderUsers();
 
         const form = document.getElementById('form');
         const input = document.getElementById('input');
@@ -194,6 +203,10 @@
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
+            if (!currentChat) {
+                alert("يرجى اختيار مستخدم من القائمة الجانبية أولاً!");
+                return;
+            }
             if (input.value && username) {
                 const messageData = {
                     username: username,
