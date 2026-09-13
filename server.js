@@ -11,10 +11,12 @@ app.use(express.static(path.join(__dirname)));
 
 let messages = [];
 let verifiedUsers = {};
+let groups = ["الدردشة العامة"]; // المجموعات الافتراضية
 
 io.on('connection', (socket) => {
     socket.emit('load_history', messages);
     socket.emit('update_users', Object.keys(verifiedUsers));
+    socket.emit('update_groups', groups);
 
     socket.on('verify_user', (username) => {
         if (!username || username.trim() === "") return;
@@ -23,15 +25,24 @@ io.on('connection', (socket) => {
         io.emit('update_users', Object.keys(verifiedUsers));
     });
 
+    socket.on('create_group', (groupName) => {
+        if (groupName && !groups.includes(groupName)) {
+            groups.push(groupName);
+            io.emit('update_groups', groups);
+        }
+    });
+
     socket.on('send_message', (data) => {
         messages.push(data);
-        if (messages.length > 100) messages.shift();
+        if (messages.length > 200) messages.shift();
         io.emit('receive_message', data);
     });
 
-    // إرسال إشارات WebRTC للمكالمات الحقيقية
+    socket.on('typing', (data) => {
+        socket.broadcast.emit('display_typing', data);
+    });
+
     socket.on('call_user', (data) => {
-        // data: { to, offer, from, type }
         const targetSocketId = verifiedUsers[data.to];
         if (targetSocketId) {
             io.to(targetSocketId).emit('incoming_call', {
@@ -43,7 +54,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('make_answer', (data) => {
-        // data: { to, answer, from }
         const targetSocketId = verifiedUsers[data.to];
         if (targetSocketId) {
             io.to(targetSocketId).emit('call_answered', {
