@@ -41,14 +41,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('send_message', (data) => {
-        // data: { id, username, text, image, file, audio, chat, replyTo, read }
         messages.push(data);
         if (messages.length > 300) messages.shift();
         io.emit('receive_message', data);
     });
 
     socket.on('mark_read', (data) => {
-        // data: { chat, reader }
         messages.forEach(msg => {
             if (msg.chat === data.chat && msg.username !== data.reader) {
                 msg.read = true;
@@ -61,7 +59,25 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('display_typing', data);
     });
 
-    // WebRTC Signaling
+    // إدارة الغرف الصوتية الثابتة (Voice Chat Rooms)
+    socket.on('join-room', (roomId) => {
+        socket.join(roomId);
+        socket.to(roomId).emit('user-connected', socket.id);
+
+        socket.on('disconnect', () => {
+            socket.to(roomId).emit('user-disconnected', socket.id);
+        });
+    });
+
+    // WebRTC Signaling المطور للمكالمات الصوتية
+    socket.on('signal', (data) => {
+        io.to(data.to).emit('signal', {
+            from: socket.id,
+            signal: data.signal
+        });
+    });
+
+    // WebRTC Signaling القديم (للتوافق)
     socket.on('call_user', (data) => {
         const target = verifiedUsers[data.to];
         if (target) {
