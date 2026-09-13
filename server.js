@@ -10,20 +10,28 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname)));
 
 let messages = [];
-let verifiedUsers = {};
-let groups = ["الدردشة العامة"]; // المجموعات الافتراضية
+let verifiedUsers = {}; // { username: { socketId, status, lastSeen } }
+let groups = ["الدردشة العامة"];
 
 io.on('connection', (socket) => {
     socket.emit('load_history', messages);
-    socket.emit('update_users', Object.keys(verifiedUsers));
-    socket.emit('update_groups', groups);
 
     socket.on('verify_user', (username) => {
         if (!username || username.trim() === "") return;
-        verifiedUsers[username] = socket.id;
+        verifiedUsers[username] = { socketId: socket.id, status: 'متصل الآن', lastSeen: 'الآن' };
+        socket.username = username;
         socket.emit('auth_success', username);
-        io.emit('update_users', Object.keys(verifiedUsers));
+        updateUsersList();
+        io.emit('update_groups', groups);
     });
+
+    function updateUsersList() {
+        const usersData = {};
+        for (let u in verifiedUsers) {
+            usersData[u] = { status: verifiedUsers[u].status, lastSeen: verifiedUsers[u].lastSeen };
+        }
+        io.emit('update_users', usersData);
+    }
 
     socket.on('create_group', (groupName) => {
         if (groupName && !groups.includes(groupName)) {
@@ -33,57 +41,58 @@ io.on('connection', (socket) => {
     });
 
     socket.on('send_message', (data) => {
+        // data: { id, username, text, image, file, audio, chat, replyTo, read }
         messages.push(data);
-        if (messages.length > 200) messages.shift();
+        if (messages.length > 300) messages.shift();
         io.emit('receive_message', data);
+    });
+
+    socket.on('mark_read', (data) => {
+        // data: { chat, reader }
+        messages.forEach(msg => {
+            if (msg.chat === data.chat && msg.username !== data.reader) {
+                msg.read = true;
+            }
+        });
+        io.emit('messages_read', { chat: data.chat, reader: data.reader });
     });
 
     socket.on('typing', (data) => {
         socket.broadcast.emit('display_typing', data);
     });
 
+    // WebRTC Signaling
     socket.on('call_user', (data) => {
-        const targetSocketId = verifiedUsers[data.to];
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('incoming_call', {
-                from: data.from,
-                offer: data.offer,
-                type: data.type
-            });
+        const target = verifiedUsers[data.to];
+        if (target) {
+            io.to(target.socketId).emit('incoming_call', { from: data.from, offer: data.offer, type: data.type });
         }
     });
 
     socket.on('make_answer', (data) => {
-        const targetSocketId = verifiedUsers[data.to];
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('call_answered', {
-                answer: data.answer,
-                from: data.from
-            });
+        const target = verifiedUsers[data.to];
+        if (target) {
+            io.to(target.socketId).emit('call_answered', { answer: data.answer, from: data.from });
         }
     });
 
     socket.on('ice_candidate', (data) => {
-        const targetSocketId = verifiedUsers[data.to];
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('ice_candidate', {
-                candidate: data.candidate
-            });
+        const target = verifiedUsers[data.to];
+        if (target) {
+            io.to(target.socketId).emit('ice_candidate', { candidate: data.candidate });
         }
     });
 
     socket.on('disconnect', () => {
-        for (let user in verifiedUsers) {
-            if (verifiedUsers[user] === socket.id) {
-                delete verifiedUsers[user];
-                break;
-            }
+        if (socket.username && verifiedUsers[socket.username]) {
+            verifiedUsers[socket.username].status = 'آخر ظهور: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            updateUsersList();
+            delete verifiedUsers[socket.username];
         }
-        io.emit('update_users', Object.keys(verifiedUsers));
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`السيرفر يعمل على البورت ${PORT}`);
+    console.log(`السيرفر يعمل بكفاءة على البورت ${PORT}`);
 });
