@@ -157,9 +157,26 @@
         let currentChat = "الدردشة العامة";
         let replyingToMsg = null;
 
+        // تثبيت رابط الغرفة الثابت تلقائياً
+        let roomId = window.location.hash.substring(1);
+        if (!roomId) {
+            roomId = "room_" + Math.random().toString(36).substring(2, 9);
+            window.location.hash = roomId;
+        }
+
         let peerConnection;
         let localStream;
         const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        // إعدادات الصوت عالية الجودة (Opus / Studio Quality)
+        const highQualityAudioConstraints = {
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 48000
+            }
+        };
 
         const loginModal = document.getElementById('login-modal');
         const usernameInput = document.getElementById('username-input');
@@ -167,12 +184,14 @@
 
         if (username) {
             socket.emit('verify_user', username);
+            socket.emit('join-room', roomId);
         }
 
         function verifyAndLogin() {
             const val = usernameInput.value.trim();
             if (!val) return alert("يرجى كتابة اسم صحيح!");
             socket.emit('verify_user', val);
+            socket.emit('join-room', roomId);
         }
 
         socket.on('auth_success', (verifiedName) => {
@@ -249,8 +268,6 @@
             document.getElementById('call-actions-box').style.display = showCall ? 'flex' : 'none';
             renderSidebar();
             loadChatHistory();
-
-            // إرسال طلب تحديث قراءة الرسائل (الصحين الزرقاء)
             socket.emit('mark_read', { chat: getChatRoomKey(), reader: username });
         }
 
@@ -333,7 +350,6 @@
             }
         }
 
-        // تسجيل صوتي حقيقي
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
@@ -342,7 +358,7 @@
             const micBtn = document.getElementById('mic-btn');
             if (!isRecording) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const stream = await navigator.mediaDevices.getUserMedia(highQualityAudioConstraints);
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
                     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
@@ -440,12 +456,13 @@
             document.getElementById('reply-preview-box').style.display = 'none';
         }
 
-        // WebRTC Calls
+        // WebRTC Calls مع إعدادات الصوت الاحترافية
         async function startCall(type) {
             document.getElementById('video-container').style.display = 'flex';
             document.getElementById('call-status-text').innerText = `جاري الاتصال بـ ${currentChat}...`;
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+                const constraints = { video: type === 'video', audio: highQualityAudioConstraints.audio };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 document.getElementById('local-video').srcObject = localStream;
                 createPeerConnection();
                 localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
@@ -464,7 +481,8 @@
                 document.getElementById('video-container').style.display = 'flex';
                 document.getElementById('call-status-text').innerText = `متصل مع ${data.from}`;
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: data.type === 'video', audio: true });
+                    const constraints = { video: data.type === 'video', audio: highQualityAudioConstraints.audio };
+                    localStream = await navigator.mediaDevices.getUserMedia(constraints);
                     document.getElementById('local-video').srcObject = localStream;
                     createPeerConnection();
                     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
@@ -478,7 +496,7 @@
 
         socket.on('call_answered', async (data) => {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            document.getElementById('call-status-text').innerText = "متصل الآن";
+            document.getElementById('call-status-text').innerText = "متصل الآن بجودة عالية";
         });
 
         socket.on('ice_candidate', async (data) => {
