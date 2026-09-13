@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب - مكالمات حقيقية وصور</title>
+    <title>واتساب - متكامل بالميزات الجديدة</title>
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -13,6 +13,11 @@
         .sidebar { width: 350px; background-color: #111b21; border-left: 1px solid #222d34; display: flex; flex-direction: column; order: 1; }
         .sidebar-header { padding: 15px; background-color: #202c33; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         
+        .section-title { padding: 8px 15px; font-size: 12px; color: #00a884; background: #182229; font-weight: bold; }
+        .add-group-box { padding: 10px; display: flex; gap: 5px; background: #111b21; border-bottom: 1px solid #222d34; }
+        .add-group-box input { flex: 1; padding: 6px 10px; background: #2a3942; border: none; border-radius: 4px; color: #fff; font-size: 12px; outline: none; }
+        .add-group-box button { background: #00a884; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
         .contacts-list { flex: 1; overflow-y: auto; }
         .contact-item { display: flex; align-items: center; padding: 12px 15px; border-bottom: 1px solid #222d34; cursor: pointer; transition: background 0.2s; }
         .contact-item:hover, .contact-item.active { background-color: #2a3942; }
@@ -28,6 +33,7 @@
         .chat-header-left { display: flex; align-items: center; gap: 12px; }
         .chat-header-avatar { width: 40px; height: 40px; background-color: #005c4b; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; }
         .chat-header-name { font-size: 16px; font-weight: bold; color: #f1f1f1; }
+        .typing-indicator { font-size: 11px; color: #00a884; margin-top: 2px; }
         
         .call-actions { display: flex; gap: 20px; color: #8696a0; font-size: 18px; cursor: pointer; }
         .call-actions i:hover { color: #00a884; }
@@ -46,7 +52,6 @@
         .file-label:hover { color: #00a884; }
         #send-btn { background-color: #00a884; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
-        /* نافذة عرض الفيديو والصوت أثناء المكالمة */
         #video-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .video-box { display: flex; gap: 10px; justify-content: center; align-items: center; width: 80%; height: 70%; }
         video { width: 45%; height: 100%; background: #000; border-radius: 8px; object-fit: cover; }
@@ -69,7 +74,6 @@
         </div>
     </div>
 
-    <!-- نافذة المكالمة المرئية/الصوتية -->
     <div id="video-container">
         <h3 id="call-status-text" style="color: white; margin-bottom: 15px;">جاري الاتصال...</h3>
         <div class="video-box">
@@ -83,16 +87,19 @@
         <div class="chat-header">
             <div class="chat-header-left">
                 <div class="chat-header-avatar" id="active-chat-avatar">🌍</div>
-                <div class="chat-header-name" id="active-chat-title">دردشة عامة (الكل)</div>
+                <div>
+                    <div class="chat-header-name" id="active-chat-title">الدردشة العامة</div>
+                    <div class="typing-indicator" id="typing-indicator"></div>
+                </div>
             </div>
-            <div class="call-actions">
+            <div class="call-actions" id="call-actions-box">
                 <i class="fas fa-video" title="مكالمة فيديو" onclick="startCall('video')"></i>
                 <i class="fas fa-phone-alt" title="مكالمة صوتية" onclick="startCall('audio')"></i>
             </div>
         </div>
 
         <div id="chat-container">
-            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر مستخدماً موثقاً للبدء</div>
+            <div style="text-align: center; color: #8696a0; margin-top: 50px;">اختر محادثة أو مجموعة للبدء</div>
         </div>
 
         <form id="form">
@@ -100,24 +107,38 @@
                 <i class="fas fa-image"></i>
                 <input type="file" id="image-input" accept="image/*" style="display: none;" onchange="sendImage(event)">
             </label>
-            <input id="input" autocomplete="off" placeholder="اكتب رسالة..." />
+            <input id="input" autocomplete="off" placeholder="اكتب رسالة..." oninput="notifyTyping()" />
             <button id="send-btn">إرسال</button>
         </form>
     </div>
 
     <div class="sidebar">
         <div class="sidebar-header">
-            <span>المستخدمون الموثقون</span>
-            <span id="logged-user-name" style="font-size: 12px; color: #00a884;"></span>
+            <span>القوائم والمجموعات</span>
+            <span id="logged-user-name" style="font-size: 11px; color: #00a884;"></span>
         </div>
+
+        <div class="add-group-box">
+            <input type="text" id="new-group-input" placeholder="اسم مجموعة جديدة..." />
+            <button onclick="createGroup()">إنشاء</button>
+        </div>
+
+        <div class="section-title">المجموعات</div>
+        <div id="groups-list" style="max-height: 120px; overflow-y: auto;"></div>
+
+        <div class="section-title">المستخدمون الموثقون</div>
         <div class="contacts-list" id="contacts-list"></div>
     </div>
+
+    <!-- صوت إشعار الرسائل -->
+    <audio id="notification-sound" src="https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3" preload="auto"></audio>
 
     <script>
         const socket = io();
         let username = localStorage.getItem('chat_username');
         let allUsers = [];
-        let currentChat = "الكل";
+        let allGroups = [];
+        let currentChat = "الدردشة العامة";
 
         let peerConnection;
         let localStream;
@@ -141,36 +162,55 @@
             username = verifiedName;
             localStorage.setItem('chat_username', username);
             loginModal.style.display = 'none';
-            loggedUserName.innerText = "حساب موثق: " + username;
+            loggedUserName.innerText = "الحساب: " + username;
         });
 
         socket.on('update_users', (users) => {
             allUsers = users;
-            renderUsers();
+            renderSidebar();
         });
 
-        function renderUsers() {
-            const list = document.getElementById('contacts-list');
-            list.innerHTML = "";
-            
-            const generalItem = document.createElement('div');
-            generalItem.classList.add('contact-item');
-            if (currentChat === "الكل") generalItem.classList.add('active');
-            generalItem.innerHTML = `
-                <div class="contact-avatar">🌍</div>
-                <div class="contact-info">
-                    <div class="contact-name">دردشة عامة (الكل)</div>
-                    <div class="contact-status">متاح للجميع</div>
-                </div>
-            `;
-            generalItem.onclick = () => {
-                currentChat = "الكل";
-                document.getElementById('active-chat-title').innerText = "دردشة عامة (الكل)";
-                document.getElementById('active-chat-avatar').innerText = "🌍";
-                renderUsers();
-            };
-            list.appendChild(generalItem);
+        socket.on('update_groups', (groups) => {
+            allGroups = groups;
+            renderSidebar();
+        });
 
+        function createGroup() {
+            const gInput = document.getElementById('new-group-input');
+            const gName = gInput.value.trim();
+            if (gName) {
+                socket.emit('create_group', gName);
+                gInput.value = '';
+            }
+        }
+
+        function renderSidebar() {
+            const groupsList = document.getElementById('groups-list');
+            groupsList.innerHTML = "";
+            allGroups.forEach(group => {
+                const item = document.createElement('div');
+                item.classList.add('contact-item');
+                if (group === currentChat) item.classList.add('active');
+                item.innerHTML = `
+                    <div class="contact-avatar" style="background:#005c4b;">#</div>
+                    <div class="contact-info">
+                        <div class="contact-name">${group}</div>
+                        <div class="contact-status">مجموعة جماعية</div>
+                    </div>
+                `;
+                item.onclick = () => {
+                    currentChat = group;
+                    document.getElementById('active-chat-title').innerText = group;
+                    document.getElementById('active-chat-avatar').innerText = "#";
+                    document.getElementById('call-actions-box').style.display = 'none'; // المجموعات ليس لها مكالمة مباشرة
+                    renderSidebar();
+                    loadChatHistory();
+                };
+                groupsList.appendChild(item);
+            });
+
+            const contactsList = document.getElementById('contacts-list');
+            contactsList.innerHTML = "";
             allUsers.forEach(user => {
                 if (user === username) return;
                 const item = document.createElement('div');
@@ -183,124 +223,108 @@
                     </div>
                     <div class="contact-info">
                         <div class="contact-name">${user}</div>
-                        <div class="contact-status">موثق ✓</div>
+                        <div class="contact-status">متصل ✓</div>
                     </div>
                 `;
                 item.onclick = () => {
                     currentChat = user;
-                    document.getElementById('active-chat-title').innerText = "محادثة مع: " + user;
+                    document.getElementById('active-chat-title').innerText = user;
                     document.getElementById('active-chat-avatar').innerText = user.charAt(0);
-                    renderUsers();
+                    document.getElementById('call-actions-box').style.display = 'flex';
+                    renderSidebar();
+                    loadChatHistory();
                 };
-                list.appendChild(item);
+                contactsList.appendChild(item);
             });
         }
 
-        async function startCall(type) {
-            if (currentChat === "الكل") return alert("اختر مستخدماً محدداً للاتصال!");
-            
-            document.getElementById('video-container').style.display = 'flex';
-            document.getElementById('call-status-text').innerText = `جاري الاتصال بـ ${currentChat}...`;
+        let allMessages = [];
+        socket.on('load_history', (history) => {
+            allMessages = history;
+            loadChatHistory();
+        });
 
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: type === 'video', 
-                    audio: true 
-                });
-                document.getElementById('local-video').srcObject = localStream;
-
-                createPeerConnection();
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                socket.emit('call_user', { to: currentChat, offer: offer, from: username, type: type });
-            } catch (err) {
-                alert("تعذر الوصول إلى الكاميرا أو الميكروفون!");
-                endCall();
-            }
-        }
-
-        socket.on('incoming_call', async (data) => {
-            if (confirm(`مكالمة واردة من ${data.from} (${data.type}). هل تريد الرد؟`)) {
-                currentChat = data.from;
-                document.getElementById('video-container').style.display = 'flex';
-                document.getElementById('call-status-text').innerText = `متصل مع ${data.from}`;
-
-                try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: data.type === 'video', 
-                        audio: true 
-                    });
-                    document.getElementById('local-video').srcObject = localStream;
-
-                    createPeerConnection();
-                    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-
-                    socket.emit('make_answer', { to: data.from, answer: answer, from: username });
-                } catch (err) {
-                    endCall();
+        function loadChatHistory() {
+            const chatContainer = document.getElementById('chat-container');
+            chatContainer.innerHTML = "";
+            allMessages.forEach(msg => {
+                // تصفية الرسائل حسب المحادثة الحالية (عامة، مجموعة، أو محادثة خاصة بين شخصين)
+                if (msg.chat === currentChat || (currentChat !== "الدردشة العامة" && !allGroups.includes(currentChat) && (msg.chat === username + "-" + currentChat || msg.chat === currentChat + "-" + username))) {
+                    appendMessage(msg);
+                } else if (currentChat === "الدردشة العامة" && (!msg.chat || msg.chat === "الدردشة العامة")) {
+                    appendMessage(msg);
                 }
+            });
+        }
+
+        function notifyTyping() {
+            socket.emit('typing', { from: username, to: currentChat });
+        }
+
+        socket.on('display_typing', (data) => {
+            if (data.to === currentChat) {
+                const indicator = document.getElementById('typing-indicator');
+                indicator.innerText = `${data.from} يكتب الآن...`;
+                setTimeout(() => { indicator.innerText = ""; }, 2000);
             }
         });
 
-        socket.on('call_answered', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            document.getElementById('call-status-text').innerText = `متصل الآن`;
-        });
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
 
-        socket.on('ice_candidate', async (data) => {
-            if (peerConnection) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
-        });
-
-        function createPeerConnection() {
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value.trim() && username) {
+                let targetChat = currentChat;
+                let msgData = { username, text: input.value, image: null, chat: targetChat };
+                
+                // إذا كانت محادثة خاصة بين مستخدمين
+                if (!allGroups.includes(currentChat) && currentChat !== "الدردشة العامة") {
+                    msgData.chat = [username, currentChat].sort().join('-');
                 }
-            };
 
-            peerConnection.ontrack = (event) => {
-                document.getElementById('remote-video').srcObject = event.streams[0];
-            };
-        }
-
-        function endCall() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
+                socket.emit('send_message', msgData);
+                input.value = '';
             }
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            document.getElementById('video-container').style.display = 'none';
-        }
+        });
 
         function sendImage(event) {
             const file = event.target.files[0];
             if (file && username) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    socket.emit('send_message', { username, text: "", image: e.target.result, chat: currentChat });
+                    let targetChat = currentChat;
+                    let msgData = { username, text: "", image: e.target.result, chat: targetChat };
+                    if (!allGroups.includes(currentChat) && currentChat !== "الدردشة العامة") {
+                        msgData.chat = [username, currentChat].sort().join('-');
+                    }
+                    socket.emit('send_message', msgData);
                 };
                 reader.readAsDataURL(file);
             }
         }
 
-        const form = document.getElementById('form');
-        const input = document.getElementById('input');
-        const chatContainer = document.getElementById('chat-container');
+        socket.on('receive_message', (data) => {
+            allMessages.push(data);
+            let matches = false;
+            if (data.chat === currentChat || (data.chat === [username, currentChat].sort().join('-'))) {
+                matches = true;
+            } else if ((!data.chat || data.chat === "الدردشة العامة") && currentChat === "الدردشة العامة") {
+                matches = true;
+            }
+
+            if (matches) {
+                appendMessage(data);
+            }
+
+            // تشغيل صوت الإشعار إذا كانت الرسالة واردة من شخص آخر
+            if (data.username !== username) {
+                document.getElementById('notification-sound').play().catch(e => {});
+            }
+        });
 
         function appendMessage(data) {
+            const chatContainer = document.getElementById('chat-container');
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message');
             messageDiv.classList.add(data.username === username ? 'outgoing' : 'incoming');
@@ -314,22 +338,66 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        socket.on('load_history', (history) => {
-            chatContainer.innerHTML = "";
-            history.forEach(msg => appendMessage(msg));
-        });
+        // إعدادات المكالمات
+        async function startCall(type) {
+            document.getElementById('video-container').style.display = 'flex';
+            document.getElementById('call-status-text').innerText = `جاري الاتصال بـ ${currentChat}...`;
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+                document.getElementById('local-video').srcObject = localStream;
+                createPeerConnection();
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('call_user', { to: currentChat, offer, from: username, type });
+            } catch (err) {
+                alert("تعذر الوصول للكاميرا/الميكروفون!");
+                endCall();
+            }
+        }
 
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (input.value.trim() && username) {
-                socket.emit('send_message', { username, text: input.value, image: null, chat: currentChat });
-                input.value = '';
+        socket.on('incoming_call', async (data) => {
+            if (confirm(`مكالمة واردة (${data.type}) من ${data.from}. هل تريد الرد؟`)) {
+                currentChat = data.from;
+                document.getElementById('video-container').style.display = 'flex';
+                document.getElementById('call-status-text').innerText = `متصل مع ${data.from}`;
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: data.type === 'video', audio: true });
+                    document.getElementById('local-video').srcObject = localStream;
+                    createPeerConnection();
+                    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    socket.emit('make_answer', { to: data.from, answer, from: username });
+                } catch (err) { endCall(); }
             }
         });
 
-        socket.on('receive_message', (data) => {
-            appendMessage(data);
+        socket.on('call_answered', async (data) => {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            document.getElementById('call-status-text').innerText = "متصل الآن";
         });
+
+        socket.on('ice_candidate', async (data) => {
+            if (peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        });
+
+        function createPeerConnection() {
+            peerConnection = new RTCPeerConnection(rtcConfig);
+            peerConnection.onicecandidate = (e) => {
+                if (e.candidate) socket.emit('ice_candidate', { to: currentChat, candidate: e.candidate });
+            };
+            peerConnection.ontrack = (e) => {
+                document.getElementById('remote-video').srcObject = e.streams[0];
+            };
+        }
+
+        function endCall() {
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            if (peerConnection) { peerConnection.close(); peerConnection = null; }
+            document.getElementById('video-container').style.display = 'none';
+        }
     </script>
 </body>
 </html>
