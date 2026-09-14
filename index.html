@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب ويب - مطور</title>
+    <title>واتساب ويب - متطور بالصوت والصور</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -34,7 +34,7 @@
                 </div>
             </div>
             
-            <!-- شريط البحث الجديد -->
+            <!-- شريط البحث -->
             <div class="p-2 bg-white border-b">
                 <div class="flex items-center bg-[#f0f2f5] px-3 py-1.5 rounded-lg">
                     <i class="fa-solid fa-search text-gray-400 ml-2"></i>
@@ -69,11 +69,23 @@
                 <!-- الرسائل -->
             </div>
 
-            <!-- إدخال الرسالة مع مؤشر الكتابة -->
+            <!-- إدخال الرسالة والأزرار الإضافية -->
             <div class="bg-[#f0f2f5] p-3 flex flex-col">
                 <div id="typing-indicator" class="text-xs text-[#00a884] h-4 mb-1 px-2 font-semibold hidden">يكتب الآن...</div>
                 <div class="flex items-center space-x-3 space-x-reverse">
+                    <!-- زر إرفاق صورة -->
+                    <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال صورة">
+                        <i class="fa-solid fa-image"></i>
+                        <input type="file" accept="image/*" class="hidden" onchange="sendImage(event)">
+                    </label>
+
+                    <!-- زر تسجيل الصوت (مقاومة الضغط والتسجيل) -->
+                    <button id="mic-btn" onclick="toggleVoiceRecording()" class="text-gray-600 hover:text-red-600 text-xl transition" title="تسجيل رسالة صوتية">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+
                     <input type="text" id="message-input" placeholder="اكتب رسالة..." class="flex-1 bg-white px-4 py-2 rounded-lg border-none focus:outline-none" oninput="notifyTyping()" onkeypress="handleKeyPress(event)">
+                    
                     <button onclick="sendMessage()" class="bg-[#00a884] text-white px-4 py-2 rounded-lg hover:bg-[#008f6f]"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
@@ -107,6 +119,10 @@
         let localStream;
         let remoteStream;
 
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
         const rtcConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -115,7 +131,6 @@
             ]
         };
 
-        // نظام توليد الأصوات (بدون ملفات خارجية)
         function playSound(type) {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -198,14 +213,58 @@
         function sendMessage() {
             const text = document.getElementById('message-input').value.trim();
             if(!text) return;
-            const msgData = { chat: currentChat, username: myUsername, text: text, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+            const msgData = { chat: currentChat, username: myUsername, type: 'text', text: text, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
             socket.emit('send_message', msgData);
             document.getElementById('message-input').value = '';
         }
 
+        function sendImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = () => {
+                const msgData = { chat: currentChat, username: myUsername, type: 'image', content: reader.result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+                socket.emit('send_message', msgData);
+            };
+        }
+
+        // تسجيل وإرسال الصوت
+        async function toggleVoiceRecording() {
+            const micBtn = document.getElementById('mic-btn');
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            const msgData = { chat: currentChat, username: myUsername, type: 'audio', content: reader.result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+                            socket.emit('send_message', msgData);
+                        };
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micBtn.classList.add('text-red-600', 'animate-pulse');
+                } catch(e) {
+                    alert("تعذر الوصول إلى المايكروفون!");
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.classList.remove('text-red-600', 'animate-pulse');
+            }
+        }
+
         function handleKeyPress(e) { if(e.key === 'Enter') sendMessage(); }
 
-        // مؤشر الكتابة
         function notifyTyping() {
             socket.emit('typing', { chat: currentChat, username: myUsername });
         }
@@ -232,11 +291,20 @@
             container.innerHTML = '';
             allMessages.filter(m => m.chat === currentChat).forEach(m => {
                 const isMe = m.username === myUsername;
+                let contentHtml = '';
+                if(m.type === 'audio') {
+                    contentHtml = `<audio controls class="w-48 h-10"><source src="${m.content}" type="audio/webm"></audio>`;
+                } else if(m.type === 'image') {
+                    contentHtml = `<img src="${m.content}" class="max-w-xs rounded-lg cursor-pointer" onclick="window.open(this.src)">`;
+                } else {
+                    contentHtml = `<div class="text-sm text-gray-800">${m.text}</div>`;
+                }
+
                 container.innerHTML += `
                     <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
                         <div class="max-w-xs px-4 py-2 rounded-lg shadow ${isMe ? 'bg-[#dcf8c6]' : 'bg-white'}">
                             ${!isMe ? `<div class="text-xs font-bold text-blue-600 mb-1">${m.username}</div>` : ''}
-                            <div class="text-sm text-gray-800">${m.text}</div>
+                            ${contentHtml}
                             <div class="flex items-center justify-end space-x-1 space-x-reverse mt-1">
                                 <span class="text-[10px] text-gray-500">${m.time}</span>
                                 ${isMe ? '<span class="text-[10px] text-blue-500"><i class="fa-solid fa-check-double"></i></span>' : ''}
