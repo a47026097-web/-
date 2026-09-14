@@ -126,9 +126,29 @@
 
         const rtcConfig = {
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }
+                {
+                    urls: "stun:stun.relay.metered.ca:80"
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:80",
+                    username: "5a7f0ee6288a27c37fc25fa6",
+                    credential: "xHtDb/xICUr5qHKb"
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                    username: "5a7f0ee6288a27c37fc25fa6",
+                    credential: "xHtDb/xICUr5qHKb"
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:443",
+                    username: "5a7f0ee6288a27c37fc25fa6",
+                    credential: "xHtDb/xICUr5qHKb"
+                },
+                {
+                    urls: "turn:global.relay.metered.ca:443?transport=tcp",
+                    username: "5a7f0ee6288a27c37fc25fa6",
+                    credential: "xHtDb/xICUr5qHKb"
+                }
             ]
         };
 
@@ -331,7 +351,6 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // دالة التعامل مع استلام مسارات الصوت والفيديو الواردة
         function setupPeerConnectionEvents(pc) {
             pc.ontrack = event => {
                 remoteStream = event.streams[0];
@@ -347,7 +366,6 @@
             };
         }
 
-        // بدء المكالمة الصادرة
         async function startCall(type) {
             if(groupsList.includes(currentChat)) return alert("المكالمات الفردية متاحة مع المستخدمين فقط!");
             document.getElementById('call-modal').classList.remove('hidden');
@@ -374,7 +392,6 @@
             socket.emit('call_user', { to: currentChat, from: myUsername, offer: offer, type: type });
         }
 
-        // استقبال المكالمة بأزرار تفاعلية
         socket.on('incoming_call', (data) => {
             incomingCallData = data;
             playSound('ring');
