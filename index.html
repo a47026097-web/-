@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب ويب - متكامل</title>
+    <title>واتساب ويب - متكامل مع المكالمات والإشعارات</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -331,6 +331,22 @@
             container.scrollTop = container.scrollHeight;
         }
 
+        // دالة التعامل مع استلام مسارات الصوت والفيديو الواردة
+        function setupPeerConnectionEvents(pc) {
+            pc.ontrack = event => {
+                remoteStream = event.streams[0];
+                if (remoteStream.getVideoTracks().length > 0) {
+                    const remoteVideo = document.getElementById('remoteVideo');
+                    remoteVideo.classList.remove('hidden');
+                    remoteVideo.srcObject = remoteStream;
+                } else {
+                    const remoteAudio = document.getElementById('remoteAudio');
+                    remoteAudio.srcObject = remoteStream;
+                    remoteAudio.play().catch(e => console.log("تعذر تشغيل الصوت تلقائياً:", e));
+                }
+            };
+        }
+
         // بدء المكالمة الصادرة
         async function startCall(type) {
             if(groupsList.includes(currentChat)) return alert("المكالمات الفردية متاحة مع المستخدمين فقط!");
@@ -347,15 +363,7 @@
             peerConnection = new RTCPeerConnection(rtcConfig);
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-            peerConnection.ontrack = event => {
-                remoteStream = event.streams[0];
-                if(type === 'video') {
-                    document.getElementById('remoteVideo').classList.remove('hidden');
-                    document.getElementById('remoteVideo').srcObject = remoteStream;
-                } else {
-                    document.getElementById('remoteAudio').srcObject = remoteStream;
-                }
-            };
+            setupPeerConnectionEvents(peerConnection);
 
             peerConnection.onicecandidate = event => {
                 if(event.candidate) socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
@@ -366,7 +374,7 @@
             socket.emit('call_user', { to: currentChat, from: myUsername, offer: offer, type: type });
         }
 
-        // استقبال المكالمة بأزرار تفاعلية حقيقية (بدون تجميد confirm)
+        // استقبال المكالمة بأزرار تفاعلية
         socket.on('incoming_call', (data) => {
             incomingCallData = data;
             playSound('ring');
@@ -397,15 +405,7 @@
             peerConnection = new RTCPeerConnection(rtcConfig);
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-            peerConnection.ontrack = event => {
-                remoteStream = event.streams[0];
-                if(data.type === 'video') {
-                    document.getElementById('remoteVideo').classList.remove('hidden');
-                    document.getElementById('remoteVideo').srcObject = remoteStream;
-                } else {
-                    document.getElementById('remoteAudio').srcObject = remoteStream;
-                }
-            };
+            setupPeerConnectionEvents(peerConnection);
 
             peerConnection.onicecandidate = event => {
                 if(event.candidate) socket.emit('ice_candidate', { to: data.from, candidate: event.candidate });
@@ -422,13 +422,21 @@
         }
 
         socket.on('call_answered', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            document.getElementById('call-status-text').innerText = "المكالمة جارية...";
+            try {
+                if (peerConnection) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    document.getElementById('call-status-text').innerText = "المكالمة جارية...";
+                }
+            } catch (e) {
+                console.error("خطأ في قبول المكالمة:", e);
+            }
         });
 
         socket.on('ice_candidate', async (data) => {
-            if(peerConnection) {
-                try { await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+            if (peerConnection && data.candidate) {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {}
             }
         });
 
