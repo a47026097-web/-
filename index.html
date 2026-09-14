@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب ويب - مع الإشعارات الفورية</title>
+    <title>واتساب ويب - متكامل</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -99,7 +99,9 @@
                 <video id="remoteVideo" autoplay class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>
                 <audio id="remoteAudio" autoplay></audio>
             </div>
-            <button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>
+            <div id="call-actions">
+                <button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>
+            </div>
         </div>
     </div>
 
@@ -116,6 +118,7 @@
         let peerConnection;
         let localStream;
         let remoteStream;
+        let incomingCallData = null;
 
         let mediaRecorder;
         let audioChunks = [];
@@ -155,7 +158,6 @@
             const input = document.getElementById('username-input').value.trim();
             if(!input) return alert("يرجى إدخال اسم صحيح");
             
-            // طلب إذن إشعارات المتصفح عند تسجيل الدخول
             if (window.Notification && Notification.permission !== "granted") {
                 Notification.requestPermission();
             }
@@ -290,7 +292,6 @@
             if(msg.username !== myUsername) {
                 playSound('message');
                 
-                // إظهار إشعار سطح المكتب البارز للجميع عند استلام أي رسالة
                 if (window.Notification && Notification.permission === "granted") {
                     let bodyText = msg.type === 'text' ? msg.text : (msg.type === 'image' ? 'أرسل صورة' : 'أرسل تسجيل صوتي');
                     new Notification(`رسالة جديدة من ${msg.username} (${msg.chat})`, {
@@ -330,11 +331,12 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // المكالمات
+        // بدء المكالمة الصادرة
         async function startCall(type) {
             if(groupsList.includes(currentChat)) return alert("المكالمات الفردية متاحة مع المستخدمين فقط!");
             document.getElementById('call-modal').classList.remove('hidden');
             document.getElementById('call-status-text').innerText = "جاري الاتصال بـ " + currentChat;
+            document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
 
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
             if(type === 'video') {
@@ -364,12 +366,27 @@
             socket.emit('call_user', { to: currentChat, from: myUsername, offer: offer, type: type });
         }
 
-        socket.on('incoming_call', async (data) => {
+        // استقبال المكالمة بأزرار تفاعلية حقيقية (بدون تجميد confirm)
+        socket.on('incoming_call', (data) => {
+            incomingCallData = data;
             playSound('ring');
-            if(!confirm(`مكالمة واردة من ${data.from}. هل تريد الرد؟`)) return;
-            currentChat = data.from;
             document.getElementById('call-modal').classList.remove('hidden');
-            document.getElementById('call-status-text').innerText = "متصل مع " + data.from;
+            document.getElementById('call-status-text').innerHTML = `مكالمة واردة من <span class="font-bold text-[#00a884]">${data.from}</span>`;
+            document.getElementById('call-actions').innerHTML = `
+                <div class="flex justify-center space-x-4 space-x-reverse">
+                    <button onclick="acceptCall()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700">قبول</button>
+                    <button onclick="rejectCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">رفض</button>
+                </div>
+            `;
+        });
+
+        async function acceptCall() {
+            const data = incomingCallData;
+            if(!data) return;
+            
+            currentChat = data.from;
+            document.getElementById('call-status-text').innerText = "جاري الاتصال مع " + data.from;
+            document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
 
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: data.type === 'video' });
             if(data.type === 'video') {
@@ -398,7 +415,11 @@
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             socket.emit('make_answer', { to: data.from, answer: answer, from: myUsername });
-        });
+        }
+
+        function rejectCall() {
+            endCall();
+        }
 
         socket.on('call_answered', async (data) => {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -417,6 +438,7 @@
             document.getElementById('call-modal').classList.add('hidden');
             document.getElementById('localVideo').classList.add('hidden');
             document.getElementById('remoteVideo').classList.add('hidden');
+            incomingCallData = null;
         }
     </script>
 </body>
