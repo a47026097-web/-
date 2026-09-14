@@ -16,6 +16,7 @@ let groups = ["الدردشة العامة"];
 io.on('connection', (socket) => {
     socket.emit('load_history', messages);
 
+    // تسجيل المستخدم
     socket.on('verify_user', (username) => {
         if (!username || username.trim() === "") return;
         verifiedUsers[username] = { socketId: socket.id, status: 'متصل الآن', lastSeen: 'الآن' };
@@ -33,6 +34,7 @@ io.on('connection', (socket) => {
         io.emit('update_users', usersData);
     }
 
+    // إنشاء مجموعة جديدة
     socket.on('create_group', (groupName) => {
         if (groupName && !groups.includes(groupName)) {
             groups.push(groupName);
@@ -40,44 +42,19 @@ io.on('connection', (socket) => {
         }
     });
 
+    // إرسال واستلام الرسائل
     socket.on('send_message', (data) => {
         messages.push(data);
         if (messages.length > 300) messages.shift();
         io.emit('receive_message', data);
     });
 
-    socket.on('mark_read', (data) => {
-        messages.forEach(msg => {
-            if (msg.chat === data.chat && msg.username !== data.reader) {
-                msg.read = true;
-            }
-        });
-        io.emit('messages_read', { chat: data.chat, reader: data.reader });
-    });
-
+    // مؤشر الكتابة
     socket.on('typing', (data) => {
         socket.broadcast.emit('display_typing', data);
     });
 
-    // إدارة الغرف الصوتية الثابتة (Voice Chat Rooms)
-    socket.on('join-room', (roomId) => {
-        socket.join(roomId);
-        socket.to(roomId).emit('user-connected', socket.id);
-
-        socket.on('disconnect', () => {
-            socket.to(roomId).emit('user-disconnected', socket.id);
-        });
-    });
-
-    // WebRTC Signaling المطور للمكالمات الصوتية
-    socket.on('signal', (data) => {
-        io.to(data.to).emit('signal', {
-            from: socket.id,
-            signal: data.signal
-        });
-    });
-
-    // WebRTC Signaling القديم (للتوافق)
+    // WebRTC Signaling للمكالمات الفردية
     socket.on('call_user', (data) => {
         const target = verifiedUsers[data.to];
         if (target) {
@@ -99,6 +76,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // قطع الاتصال
     socket.on('disconnect', () => {
         if (socket.username && verifiedUsers[socket.username]) {
             verifiedUsers[socket.username].status = 'آخر ظهور: ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
