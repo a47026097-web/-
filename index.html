@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب ويب - متطور بالصوت والصور</title>
+    <title>واتساب ويب - مع الإشعارات الفورية</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -73,13 +73,11 @@
             <div class="bg-[#f0f2f5] p-3 flex flex-col">
                 <div id="typing-indicator" class="text-xs text-[#00a884] h-4 mb-1 px-2 font-semibold hidden">يكتب الآن...</div>
                 <div class="flex items-center space-x-3 space-x-reverse">
-                    <!-- زر إرفاق صورة -->
                     <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال صورة">
                         <i class="fa-solid fa-image"></i>
                         <input type="file" accept="image/*" class="hidden" onchange="sendImage(event)">
                     </label>
 
-                    <!-- زر تسجيل الصوت (مقاومة الضغط والتسجيل) -->
                     <button id="mic-btn" onclick="toggleVoiceRecording()" class="text-gray-600 hover:text-red-600 text-xl transition" title="تسجيل رسالة صوتية">
                         <i class="fa-solid fa-microphone"></i>
                     </button>
@@ -156,6 +154,12 @@
         function login() {
             const input = document.getElementById('username-input').value.trim();
             if(!input) return alert("يرجى إدخال اسم صحيح");
+            
+            // طلب إذن إشعارات المتصفح عند تسجيل الدخول
+            if (window.Notification && Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+
             socket.emit('verify_user', input);
         }
 
@@ -229,7 +233,6 @@
             };
         }
 
-        // تسجيل وإرسال الصوت
         async function toggleVoiceRecording() {
             const micBtn = document.getElementById('mic-btn');
             if (!isRecording) {
@@ -283,7 +286,19 @@
         socket.on('receive_message', (msg) => { 
             allMessages.push(msg); 
             renderMessages(); 
-            if(msg.username !== myUsername) playSound('message');
+            
+            if(msg.username !== myUsername) {
+                playSound('message');
+                
+                // إظهار إشعار سطح المكتب البارز للجميع عند استلام أي رسالة
+                if (window.Notification && Notification.permission === "granted") {
+                    let bodyText = msg.type === 'text' ? msg.text : (msg.type === 'image' ? 'أرسل صورة' : 'أرسل تسجيل صوتي');
+                    new Notification(`رسالة جديدة من ${msg.username} (${msg.chat})`, {
+                        body: bodyText,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png'
+                    });
+                }
+            }
         });
 
         function renderMessages() {
