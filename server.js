@@ -1,239 +1,121 @@
-const socket = io();
-let roomID = '';
-let username = '';
-let localStream;
-const peers = {}; // تخزين الاتصالات لكل يوزر
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
-const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-};
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-// --- 1. بدء الدخول للغرفة وتفعيل الميكروفون ---
-function joinRoom(inputRoom, inputName) {
-    roomID = inputRoom;
-    username = inputName;
+// تقديم الملفات الثابتة
+app.use(express.static(__dirname));
 
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(stream => {
-            localStream = stream;
-            // إرسال طلب الانضمام للسيرفر مع الاسم ورقم الغرفة
-            socket.emit('join-room', roomID, username);
-        })
-        .catch(err => console.error('Error accessing media devices.', err));
-}
+io.on('connection', (socket) => {
+    console.log('مستخدم متصل:', socket.id);
 
+    // 1. الانضمام للغرفة (مع حماية ضد البيانات الفارغة)
+    socket.on('join-room', (roomID, username) => {
+        if (!roomID || !username) return;
+        socket.join(roomID);
+        socket.username = username;
+        socket.roomID = roomID;
 
-// --- 2. نظام الرسائل النصية الجماعية ---
-function sendTextMessage(messageText) {
-    if (messageText && roomID) {
-        socket.emit('chat-message', { roomID, message: messageText, username });
-        appendMessage(`أنت (${username}): ${messageText}`);
-    }
-}
+        const roomClients = io.sockets.adapter.rooms.get(roomID);
+        const usersInRoom = [];
+        if (roomClients) {
+            roomClients.forEach((clientId) => {
+                if (clientId !== socket.id) {
+                    const clientSocket = io.sockets.sockets.get(clientId);
+                    usersInRoom.push({
+                        id: clientId,
+                        username: clientSocket ? clientSocket.username : 'مستخدم'
+                    });
+                }
+            });
+        }
 
-socket.on('chat-message', ({ message, username: senderName }) => {
-    appendMessage(`${senderName}: ${message}`);
-});
+        socket.emit('all-users', usersInRoom);
+        socket.to(roomID).emit('user-joined', {
+            id: socket.id,
+            username: username
+        });
+    });
 
-function appendMessage(text) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.innerText = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
+    // مغادرة الغرفة
+    socket.on('leave-room', (data) => {
+        if (!data || !data.roomID) return;
+        socket.leave(data.roomID);
+        socket.to(data.roomID).emit('user-disconnected', socket.id);
+        socket.roomID = null;
+    });
 
+    // مؤشر الكتابة
+    socket.on('typing', (data) => {
+        if (!data || !data.roomID) return;
+        socket.to(data.roomID).emit('typing', { username: data.username });
+    });
 
-// --- 3. نظام الرسائل الصوتية (Voice Notes) ---
-let mediaRecorder;
-let audioChunks = [];
+    // 2. الرسائل النصية (مع حماية إضافية)
+    socket.on('chat-message', (data) => {
+        if (!data) return;
+        const { roomID, message, username } = data;
+        if (roomID && message) {
+            socket.to(roomID).emit('chat-message', { message, username });
+        }
+    });
 
-function startRecordingVoice() {
-    if (!localStream) return;
-    audioChunks = [];
-    mediaRecorder = new MediaRecorder(localStream);
+    // 3. الرسائل الصوتية
+    socket.on('voice-note', (data) => {
+        if (!data) return;
+        const { roomID, audioData, username } = data;
+        if (roomID && audioData) {
+            socket.to(roomID).emit('voice-note', { audioData, username });
+        }
+    });
 
-    mediaRecorder.ondataavailable = event => {
-        audioChunks.push(event.data);
-    };
+    // 4. إرسال الصور والملفات (تمت اضافتها لمنع أي أخطاء مفقودة)
+    socket.on('attachment-message', (data) => {
+        if (!data) return;
+        const { roomID, username, type, content, fileName } = data;
+        if (roomID && content) {
+            socket.to(roomID).emit('attachment-message', { username, type, content, fileName });
+        }
+    });
 
-    mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-            const base64Audio = reader.result;
-            socket.emit('voice-note', { roomID, audioData: base64Audio, username });
-            appendVoiceMessage(`أنت (${username})`, base64Audio);
-        };
-    };
+    // 5. إشارات WebRTC (مع حماية التأكد من وجود الـ target)
+    socket.on('offer', (data) => {
+        if (!data || !data.target) return;
+        io.to(data.target).emit('offer', { offer: data.offer, sender: data.sender });
+    });
 
-    mediaRecorder.start();
-}
+    socket.on('answer', (data) => {
+        if (!data || !data.target) return;
+        io.to(data.target).emit('answer', { answer: data.answer, sender: data.sender });
+    });
 
-function stopRecordingVoice() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-    }
-}
+    socket.on('ice-candidate', (data) => {
+        if (!data || !data.target) return;
+        io.to(data.target).emit('ice-candidate', { candidate: data.candidate, sender: data.sender });
+    });
 
-socket.on('voice-note', ({ audioData, username: senderName }) => {
-    appendVoiceMessage(senderName, audioData);
-});
-
-function appendVoiceMessage(senderName, dataUrl) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.innerHTML = `<strong>${senderName} (رسالة صوتية):</strong><br>`;
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.src = dataUrl;
-        div.appendChild(audio);
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-
-// --- 4. مكالمات WebRTC الصوتية الجماعية (Mesh Topology) ---
-
-// استقبال قائمة المستخدمين الموجودين بالغرفة عند الانضمام
-socket.on('all-users', (users) => {
-    users.forEach(user => {
-        createPeerConnection(user.id, true); // ابدأ الاتصال كـ Initiator
+    // 6. الخروج أو انقطاع الاتصال
+    socket.on('disconnect', () => {
+        if (socket.roomID) {
+            socket.to(socket.roomID).emit('user-disconnected', socket.id);
+        }
+        console.log('انقطع اتصال المستخدم:', socket.id);
     });
 });
 
-// مستخدم جديد انضم للغرفة
-socket.on('user-joined', ({ id }) => {
-    createPeerConnection(id, false);
+// حماية إضافية شاملة لمنع السيرفر من الـ Crash نهائياً لو حدث أي خطأ غير متوقع
+process.on('uncaughtException', (err) => {
+    console.error('خطأ غير متوقع (Uncaught Exception):', err);
 });
 
-// إنشاء اتصال WebRTC جديد مع مستخدم آخر
-function createPeerConnection(userID, isInitiator) {
-    const peerConnection = new RTCPeerConnection(configuration);
-    peers[userID] = peerConnection;
-    
-    // طابور مؤقت لحفظ الـ ICE Candidates لحين إعداد الـ RemoteDescription
-    peerConnection.pendingCandidates = [];
-
-    // إضافة الصوت الخاص بك للاتصال
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-    }
-
-    // استقبال الصوت القادم من الطرف الآخر
-    peerConnection.ontrack = (event) => {
-        let remoteAudio = document.getElementById(`audio-${userID}`);
-        if (!remoteAudio) {
-            remoteAudio = document.createElement('audio');
-            remoteAudio.id = `audio-${userID}`;
-            remoteAudio.autoplay = true;
-            const audioContainer = document.getElementById('audio-container') || document.body;
-            audioContainer.appendChild(remoteAudio);
-        }
-        remoteAudio.srcObject = event.streams[0];
-    };
-
-    // جمع الـ ICE Candidates وإرسالها للطرف الآخر
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('ice-candidate', {
-                target: userID,
-                candidate: event.candidate,
-                sender: socket.id
-            });
-        }
-    };
-
-    if (isInitiator) {
-        peerConnection.createOffer()
-            .then(offer => peerConnection.setLocalDescription(offer))
-            .then(() => {
-                socket.emit('offer', {
-                    target: userID,
-                    offer: peerConnection.localDescription,
-                    sender: socket.id
-                });
-            })
-            .catch(err => console.error('Error creating offer:', err));
-    }
-
-    return peerConnection;
-}
-
-// استقبال الـ Offer
-socket.on('offer', async ({ offer, sender }) => {
-    let peerConnection = peers[sender] || createPeerConnection(sender, false);
-    
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        
-        // تفريغ الطابور المؤقت للـ ICE Candidates بعد تعيين الـ RemoteDescription
-        while (peerConnection.pendingCandidates && peerConnection.pendingCandidates.length > 0) {
-            const candidate = peerConnection.pendingCandidates.shift();
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('answer', { target: sender, answer, sender: socket.id });
-    } catch (err) {
-        console.error('Error handling offer:', err);
-    }
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('رفض وعد غير معالج (Unhandled Rejection):', reason);
 });
 
-// استقبال الـ Answer
-socket.on('answer', async ({ answer, sender }) => {
-    const peerConnection = peers[sender];
-    if (peerConnection) {
-        try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            
-            // تفريغ الطابور المؤقت هنا أيضاً
-            while (peerConnection.pendingCandidates && peerConnection.pendingCandidates.length > 0) {
-                const candidate = peerConnection.pendingCandidates.shift();
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-        } catch (err) {
-            console.error('Error handling answer:', err);
-        }
-    }
-});
-
-// استقبال الـ ICE Candidate مع معالجة الطابور
-socket.on('ice-candidate', async ({ candidate, sender }) => {
-    const peerConnection = peers[sender];
-    if (peerConnection) {
-        try {
-            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            } else {
-                // إذا لم يتم إعداد RemoteDescription بعد، نخزنه مؤقتاً
-                peerConnection.pendingCandidates.push(candidate);
-            }
-        } catch (err) {
-            console.error('Error adding received ice candidate', err);
-        }
-    }
-});
-
-// مغادرة مستخدم للاتصال
-socket.on('user-disconnected', (userID) => {
-    if (peers[userID]) {
-        peers[userID].close();
-        delete peers[userID];
-        const audioEl = document.getElementById(`audio-${userID}`);
-        if (audioEl) audioEl.remove();
-    }
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
