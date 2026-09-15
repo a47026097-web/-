@@ -6,26 +6,26 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*" } // تفعيل الاتصال من أي مكان بالعالم
+    cors: { origin: "*" } // تفعيل الاتصال من أي مكان بالعالم مجاناً
 });
 
 app.use(express.static(path.join(__dirname)));
 
-let messages = []; // سجل حفظ الرسائل مؤقتاً
+let messages = []; // سجل حفظ الرسائل مؤقتاً في الذاكرة
 
 io.on('connection', (socket) => {
-    console.log('مستخدم متصل جديد...'); //
+    console.log('مستخدم متصل جديد...');
 
     // 1. نظام المراسلة النصية الجاهز مالتك
-    socket.emit('load_history', messages); //
+    socket.emit('load_history', messages);
 
     socket.on('send_message', (data) => {
-        messages.push(data); //
-        if (messages.length > 100) messages.shift(); //
-        io.emit('receive_message', data); //
+        messages.push(data);
+        if (messages.length > 100) messages.shift(); // الحفاظ على خفة السيرفر
+        io.emit('receive_message', data);
     });
 
-    // 2. نظام المخابرة الصوتية اللامركزية المضاف (WebRTC Signaling)
+    // 2. نظام المخابرة الصوتية اللامركزية المضاف (WebRTC)
     socket.on('join_voice_room', (roomId) => {
         socket.join(roomId);
         socket.to(roomId).emit('user_joined_voice', socket.id);
@@ -44,15 +44,15 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('مستخدم غادر الدردشة.'); //
+        console.log('مستخدم غادر الدردشة.');
     });
 });
 
-// تشغيل السيرفر على منفذ ثابت وآمن للويندوز
-const PORT = 3000; //
+// التعديل مالتك هنا: تشغيل السيرفر على البورت 8080 مباشرة
+const PORT = 8080; 
 server.listen(PORT, () => {
     console.log(`========================================`);
     console.log(`✅ تطبيق المراسلة والمخابرة يعمل بنجاح!`);
-    console.log(`📡 الرابط المحلي: http://localhost:${PORT}`);
+    console.log(`📡 السيرفر شغال الآن على البورت: ${PORT}`);
     console.log(`========================================`);
 });
