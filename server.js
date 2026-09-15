@@ -1,92 +1,58 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: { origin: "*" } // تفعيل الاتصال من أي مكان بالعالم
+});
 
-// تقديم الملفات الثابتة (مثل index.html) من نفس المجلد
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
-let users = {};          // تخزين المستخدمين المتصلين وأسمائهم
-let groupsList = ['الدردشة العامة']; // قائمة المجموعات
-let allMessages = [];    // تخزين سجل الرسائل مؤقتاً في الذاكرة
+let messages = []; // سجل حفظ الرسائل مؤقتاً
 
 io.on('connection', (socket) => {
-    let currentUsername = null;
+    console.log('مستخدم متصل جديد...'); //
 
-    // التحقق من اسم المستخدم وتسجيل دخوله
-    socket.on('verify_user', (username) => {
-        currentUsername = username;
-        users[username] = { socketId: socket.id, status: 'متصل الآن' };
-        
-        socket.emit('auth_success', username);
-        socket.emit('load_history', allMessages);
-        io.emit('update_users', users);
-        io.emit('update_groups', groupsList);
+    // 1. نظام المراسلة النصية الجاهز مالتك
+    socket.emit('load_history', messages); //
+
+    socket.on('send_message', (data) => {
+        messages.push(data); //
+        if (messages.length > 100) messages.shift(); //
+        io.emit('receive_message', data); //
     });
 
-    // إنشاء مجموعة جديدة
-    socket.on('create_group', (groupName) => {
-        if (groupName && !groupsList.includes(groupName)) {
-            groupsList.push(groupName);
-            io.emit('update_groups', groupsList);
-        }
+    // 2. نظام المخابرة الصوتية اللامركزية المضاف (WebRTC Signaling)
+    socket.on('join_voice_room', (roomId) => {
+        socket.join(roomId);
+        socket.to(roomId).emit('user_joined_voice', socket.id);
     });
 
-    // إرسال واستقبال الرسائل والملفات
-    socket.on('send_message', (msgData) => {
-        allMessages.push(msgData);
-        io.emit('receive_message', msgData);
-    });
-
-    // مؤشر الكتابة
-    socket.on('typing', (data) => {
-        socket.broadcast.emit('display_typing', data);
-    });
-
-    // نظام الاتصال المرئي والصوتي (WebRTC Signaling)
     socket.on('call_user', (data) => {
-        const targetUser = users[data.to];
-        if (targetUser) {
-            io.to(targetUser.socketId).emit('incoming_call', {
-                from: data.from,
-                offer: data.offer,
-                type: data.type
-            });
-        }
+        io.to(data.to).emit('incoming_call', { from: socket.id, offer: data.offer });
     });
 
-    socket.on('make_answer', (data) => {
-        const targetUser = users[data.to];
-        if (targetUser) {
-            io.to(targetUser.socketId).emit('call_answered', {
-                answer: data.answer,
-                from: data.from
-            });
-        }
+    socket.on('answer_call', (data) => {
+        io.to(data.to).emit('call_accepted', { from: socket.id, ans: data.ans });
     });
 
     socket.on('ice_candidate', (data) => {
-        const targetUser = users[data.to];
-        if (targetUser) {
-            io.to(targetUser.socketId).emit('ice_candidate', {
-                candidate: data.candidate
-            });
-        }
+        io.to(data.to).emit('ice_candidate', { from: socket.id, candidate: data.candidate });
     });
 
-    // التعامل مع قطع الاتصال وإزالة المستخدم من القائمة فوراً
     socket.on('disconnect', () => {
-        if (currentUsername && users[currentUsername]) {
-            delete users[currentUsername];
-            io.emit('update_users', users);
-        }
+        console.log('مستخدم غادر الدردشة.'); //
     });
 });
 
-const PORT = process.env.PORT || 3000;
+// تشغيل السيرفر على منفذ ثابت وآمن للويندوز
+const PORT = 3000; //
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`========================================`);
+    console.log(`✅ تطبيق المراسلة والمخابرة يعمل بنجاح!`);
+    console.log(`📡 الرابط المحلي: http://localhost:${PORT}`);
+    console.log(`========================================`);
 });
