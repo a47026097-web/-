@@ -82,6 +82,15 @@ io.on('connection', (socket) => {
         }
     });
 
+    // إدارة تنبيه تفعيل خادم الـ TURN وتعميمه للطرفين
+    socket.on('turn_connection_active', (data) => {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.id).emit('show_turn_alert');
+        }
+        socket.emit('show_turn_alert');
+    });
+
     // عند انقطاع الاتصال أو إغلاق الصفحة
     socket.on('disconnect', () => {
         if (socket.username && users[socket.username]) {
