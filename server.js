@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة المحادثة الجماعية والمكالمات الصوتية</title>
+    <title>منصة المحادثة والمكالمات الجماعية</title>
     <script src="https://tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cloudflare.com">
     <style>
@@ -25,14 +25,14 @@
 
     <!-- واجهة تسجيل الدخول وانشاء الغرفة -->
     <div id="login-container" class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md mx-4">
-        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">الانضمام إلى غرفة المحادثة</h2>
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">الانضمام إلى الغرفة</h2>
         <div class="space-y-4">
             <div>
                 <label class="block text-sm font-semibold text-gray-700 mb-1">اسم المستخدم</label>
                 <input type="text" id="username-input" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-right" placeholder="أدخل اسمك هنا...">
             </div>
             <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-1">معرف أو رقم الغرفة</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">رقم الغرفة</label>
                 <input type="text" id="room-input" class="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-right" placeholder="مثال: room123">
             </div>
             <button onclick="initiateJoin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition duration-200">دخول الغرفة</button>
@@ -52,18 +52,13 @@
                     <i class="fa-solid fa-microphone"></i>
                 </button>
                 <button onclick="handleLeave()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-xl text-sm font-bold transition">
-                    مغادرة الغرفة
+                    مغادرة
                 </button>
             </div>
         </div>
 
-        <!-- حاوية عناصر الصوت الخفية للأطراف الأخرى -->
         <div id="audio-container" class="hidden"></div>
-
-        <!-- صندوق عرض الرسائل والمرفقات -->
         <div id="chat-box" class="flex-1 p-6 overflow-y-auto bg-gray-50 flex flex-col gap-2"></div>
-
-        <!-- مؤشر الكتابة -->
         <div id="typing-indicator" class="px-6 py-1 text-sm text-gray-500 italic hidden bg-gray-50"></div>
 
         <!-- شريط الإدخال والإرسال السفلي -->
@@ -74,12 +69,10 @@
                 إرسال
             </button>
 
-            <!-- زر الرسالة الصوتية المباشر -->
             <button id="voice-btn" onmousedown="startRecordingVoice(); updateVoiceBtn(true);" onmouseup="stopRecordingVoice(); updateVoiceBtn(false);" onmouseleave="stopRecordingVoice(); updateVoiceBtn(false);" class="w-11 h-11 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl flex items-center justify-center transition" title="اضغط مطولاً للتسجيل">
                 <i class="fa-solid fa-microphone-lines"></i>
             </button>
 
-            <!-- أزرار رفع المرفقات والملفات والصور -->
             <label class="w-11 h-11 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl flex items-center justify-center cursor-pointer transition" title="إرسال صورة">
                 <i class="fa-solid fa-image"></i>
                 <input type="file" accept="image/*" onchange="sendAttachment(event, 'image')" class="hidden">
@@ -92,7 +85,6 @@
         </div>
     </div>
 
-    <!-- استدعاء مكتبة السوكيت وكود العميل المحدث للتشغيل المباشر -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
@@ -126,14 +118,13 @@
         function joinRoom(inputRoom, inputName) {
             roomID = inputRoom;
             username = inputName;
-
             navigator.mediaDevices.getUserMedia({ audio: true, video: false })
                 .then(stream => {
                     localStream = stream;
                     socket.emit('join-room', roomID, username);
                 })
                 .catch(err => {
-                    console.error('Error accessing media devices.', err);
+                    console.error('Media error:', err);
                     alert('فشل الوصول للميكروفون، تحقق من الصلاحيات.');
                 });
         }
@@ -205,9 +196,7 @@
         });
 
         function notifyTyping() {
-            if(roomID && username) {
-                socket.emit('typing', { roomID, username });
-            }
+            if(roomID && username) socket.emit('typing', { roomID, username });
         }
 
         socket.on('typing', ({ username: senderName }) => {
@@ -215,18 +204,17 @@
                 const indicator = document.getElementById('typing-indicator');
                 if (indicator) {
                     indicator.innerText = `${senderName} يكتب الآن...`;
+                    indicator.classList.remove('hidden');
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => indicator.classList.add('hidden'), 2000);
+                }
+            }
+        });
 
-indicator.classList.remove('hidden');
-clearTimeout(typingTimeout);
-typingTimeout = setTimeout(() => {
-indicator.classList.add('hidden');
-}, 2000);
-}
-}
-});
-function appendMessage(text) {
-const chatBox = document.getElementById('chat-box');
-if (chatBox) {
+        function appendMessage(text) {
+            const chatBox = document.getElementById('chat-box');
+            if (chatBox) {
+
 const div = document.createElement('div');
 div.className = 'message';
 div.innerText = text;
@@ -237,11 +225,7 @@ chatBox.scrollTop = chatBox.scrollHeight;
 let mediaRecorder;
 let audioChunks = [];
 function startRecordingVoice() {
-if (!localStream) return;
-if (isMuted) {
-alert("الميكروفون مكتوم حالياً، قم بإلغاء الكتم أولاً للتسجيل!");
-return;
-}
+if (!localStream || isMuted) return;
 audioChunks = [];
 mediaRecorder = new MediaRecorder(localStream);
 mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
@@ -258,9 +242,7 @@ appendVoiceMessage(أنت (${username}), base64Audio);
 mediaRecorder.start();
 }
 function stopRecordingVoice() {
-if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-mediaRecorder.stop();
-}
+if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
 }
 function updateVoiceBtn(recording) {
 const btn = document.getElementById('voice-btn');
@@ -289,16 +271,11 @@ chatBox.scrollTop = chatBox.scrollHeight;
 }
 function sendAttachment(event, type) {
 const file = event.target.files[0];
-if (!file || !roomID) return;
-if (file.size > 10 * 1024 * 1024) {
-alert("الملف كبير جداً! الحد الأقصى هو 10 ميجابايت.");
-return;
-}
+if (!file || !roomID || file.size > 10 * 1024 * 1024) return;
 const reader = new FileReader();
 reader.readAsDataURL(file);
 reader.onloadend = () => {
-const payload = { roomID, username, type: type, content: reader.result, fileName: file.name };
-socket.emit('attachment-message', payload);
+socket.emit('attachment-message', { roomID, username, type, content: reader.result, fileName: file.name });
 appendAttachmentMessage(أنت (${username}), reader.result, type, file.name);
 };
 }
@@ -313,7 +290,7 @@ div.className = 'message';
 if (type === 'image') {
 div.innerHTML = <strong>${senderName}:</strong><br><img src="${dataUrl}" class="max-w-xs rounded-lg cursor-pointer mt-1" onclick="window.open(this.src)">;
 } else {
-div.innerHTML = <strong>${senderName}:</strong><br><a href="${dataUrl}" download="${fileName}" class="text-blue-600 underline flex items-center gap-1 mt-1"><i class="fa-solid fa-file"></i> ${fileName}</a>;
+div.innerHTML = <strong>${senderName}:</strong><br><a href="${dataUrl}" download="${fileName}" class="text-blue-600 underline flex items-center gap-1 mt-1">${fileName}</a>;
 }
 chatBox.appendChild(div);
 chatBox.scrollTop = chatBox.scrollHeight;
@@ -353,7 +330,7 @@ peerConnection.createOffer()
 .then(() => {
 socket.emit('offer', { target: userID, offer: peerConnection.localDescription, sender: socket.id });
 })
-.catch(err => console.error("Error creating offer:", err));
+.catch(err => console.error(err));
 }
 return peerConnection;
 }
@@ -364,28 +341,18 @@ await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 const answer = await peerConnection.createAnswer();
 await peerConnection.setLocalDescription(answer);
 socket.emit('answer', { target: sender, answer, sender: socket.id });
-} catch (err) {
-console.error("Error handling offer:", err);
-}
+} catch (err) { console.error(err); }
 });
 socket.on('answer', async ({ answer, sender }) => {
 const peerConnection = peers[sender];
 if (peerConnection) {
-try {
-await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-} catch (err) {
-console.error("Error setting remote description from answer:", err);
-}
+try { await peerConnection.setRemoteDescription(new RTCSessionDescription(answer)); } catch (err) { console.error(err); }
 }
 });
 socket.on('ice-candidate', async ({ candidate, sender }) => {
 const peerConnection = peers[sender];
 if (peerConnection && peerConnection.remoteDescription) {
-try {
-await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-} catch (err) {
-console.error("Error adding ICE candidate:", err);
-}
+try { await peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch (err) { console.error(err); }
 }
 });
 socket.on('user-disconnected', ({ id, username: disconnectedName }) => {
@@ -397,3 +364,6 @@ if (audioEl) audioEl.remove();
 appendMessage(--- غادر ${disconnectedName || 'مستخدم'} المكالمة ---);
 }
 });
+
+
+
