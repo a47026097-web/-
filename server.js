@@ -121,6 +121,9 @@ socket.on('user-joined', ({ id }) => {
 function createPeerConnection(userID, isInitiator) {
     const peerConnection = new RTCPeerConnection(configuration);
     peers[userID] = peerConnection;
+    
+    // طابور مؤقت لحفظ الـ ICE Candidates لحين إعداد الـ RemoteDescription
+    peerConnection.pendingCandidates = [];
 
     // إضافة الصوت الخاص بك للاتصال
     if (localStream) {
@@ -162,7 +165,8 @@ function createPeerConnection(userID, isInitiator) {
                     offer: peerConnection.localDescription,
                     sender: socket.id
                 });
-            });
+            })
+            .catch(err => console.error('Error creating offer:', err));
     }
 
     return peerConnection;
@@ -171,25 +175,56 @@ function createPeerConnection(userID, isInitiator) {
 // استقبال الـ Offer
 socket.on('offer', async ({ offer, sender }) => {
     let peerConnection = peers[sender] || createPeerConnection(sender, false);
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    socket.emit('answer', { target: sender, answer, sender: socket.id });
+    
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        
+        // تفريغ الطابور المؤقت للـ ICE Candidates بعد تعيين الـ RemoteDescription
+        while (peerConnection.pendingCandidates && peerConnection.pendingCandidates.length > 0) {
+            const candidate = peerConnection.pendingCandidates.shift();
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('answer', { target: sender, answer, sender: socket.id });
+    } catch (err) {
+        console.error('Error handling offer:', err);
+    }
 });
 
 // استقبال الـ Answer
 socket.on('answer', async ({ answer, sender }) => {
     const peerConnection = peers[sender];
     if (peerConnection) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            
+            // تفريغ الطابور المؤقت هنا أيضاً
+            while (peerConnection.pendingCandidates && peerConnection.pendingCandidates.length > 0) {
+                const candidate = peerConnection.pendingCandidates.shift();
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        } catch (err) {
+            console.error('Error handling answer:', err);
+        }
     }
 });
 
-// استقبال الـ ICE Candidate
+// استقبال الـ ICE Candidate مع معالجة الطابور
 socket.on('ice-candidate', async ({ candidate, sender }) => {
     const peerConnection = peers[sender];
     if (peerConnection) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        try {
+            if (peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } else {
+                // إذا لم يتم إعداد RemoteDescription بعد، نخزنه مؤقتاً
+                peerConnection.pendingCandidates.push(candidate);
+            }
+        } catch (err) {
+            console.error('Error adding received ice candidate', err);
+        }
     }
 });
 
