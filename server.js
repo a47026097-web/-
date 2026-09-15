@@ -11,7 +11,10 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// يقرأ ملف index.html من المجلد الرئيسي مباشرة
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const rooms = {}; 
 
