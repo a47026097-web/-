@@ -1,293 +1,65 @@
-const socket = io();
-let roomID = '';
-let username = '';
-let localStream;
-let isMuted = false;
-let typingTimeout;
-const peers = {};
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
 
-const configuration = {
-    iceServers: [
-        { urls: 'stun:://google.com' },
-        { urls: 'stun:://google.com' }
-    ]
-};
+const app = express();
+const server = http.createServer(app);
 
-function joinRoom(inputRoom, inputName) {
-    roomID = inputRoom;
-    username = inputName;
-
-    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(stream => {
-            localStream = stream;
-            socket.emit('join-room', roomID, username);
-        })
-        .catch(err => console.error('Error accessing media devices.', err));
-}
-
-function leaveRoom() {
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-    for (let id in peers) {
-        if (peers[id]) {
-            peers[id].close();
-        }
-        delete peers[id];
-    }
-    socket.emit('leave-room', { roomID, username });
-    roomID = '';
-    
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) chatBox.innerHTML = '';
-    console.log("تمت مغادرة الغرفة بنجاح");
-}
-
-function toggleMuteMic() {
-    if (localStream) {
-        const audioTracks = localStream.getAudioTracks();
-        if (audioTracks && audioTracks.length > 0) {
-            isMuted = !isMuted;
-            audioTracks[0].enabled = !isMuted;
-            return isMuted;
-        }
-    }
-    return false;
-}
-
-function sendTextMessage(messageText) {
-    if (messageText && roomID) {
-        socket.emit('chat-message', { roomID, message: messageText, username });
-        appendMessage(`أنت (${username}): ${messageText}`);
-    }
-}
-
-socket.on('chat-message', ({ message, username: senderName }) => {
-    appendMessage(`${senderName}: ${message}`);
+const io = new Server(server, {
+    maxHttpBufferSize: 20 * 1024 * 1024, 
+    cors: { origin: "*" }
 });
 
-function notifyTyping() {
-    if (roomID && username) {
-        socket.emit('typing', { roomID, username });
-    }
-}
+app.use(express.static(path.join(__dirname, 'public')));
 
-socket.on('typing', ({ username: senderName }) => {
-    if (senderName !== username) {
-        const indicator = document.getElementById('typing-indicator');
-        if (indicator) {
-            indicator.innerText = `${senderName} يكتب الآن...`;
-            indicator.classList.remove('hidden');
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                indicator.classList.add('hidden');
-            }, 2000);
-        }
-    }
-});
+const rooms = {}; 
 
-function appendMessage(text) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.innerText = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-let mediaRecorder;
-let audioChunks = [];
-
-function startRecordingVoice() {
-    if (!localStream || isMuted) return;
-    audioChunks = [];
-    mediaRecorder = new MediaRecorder(localStream);
-
-    mediaRecorder.ondataavailable = event => {
-        audioChunks.push(event.data);
-    };
-
-    mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
-            const base64Audio = reader.result;
-            socket.emit('voice-note', { roomID, audioData: base64Audio, username });
-            appendVoiceMessage(`أنت (${username})`, base64Audio);
-        };
-    };
-
-    mediaRecorder.start();
-}
-
-function stopRecordingVoice() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-    }
-}
-
-socket.on('voice-note', ({ audioData, username: senderName }) => {
-    appendVoiceMessage(senderName, audioData);
-});
-
-function appendVoiceMessage(senderName, dataUrl) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.innerHTML = `<strong>${senderName} (رسالة صوتية):</strong><br>`;
-        const audio = document.createElement('audio');
-        audio.controls = true;
-        audio.src = dataUrl;
-        div.appendChild(audio);
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-function sendAttachment(event, type) {
-    if (!event.target.files || event.target.files.length === 0) return;
-    const file = event.target.files[0];
-    if (!file || !roomID) return;
-    
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onloadend = () => {
-        const payload = {
-            roomID,
-            username,
-            type: type,
-            content: reader.result,
-            fileName: file.name
-        };
-        socket.emit('attachment-message', payload);
-        appendAttachmentMessage(`أنت (${username})`, reader.result, type, file.name);
-    };
-}
-
-socket.on('attachment-message', ({ content, username: senderName, type, fileName }) => {
-    appendAttachmentMessage(senderName, content, type, fileName);
-});
-
-function appendAttachmentMessage(senderName, dataUrl, type, fileName) {
-    const chatBox = document.getElementById('chat-box');
-    if (chatBox) {
-        const div = document.createElement('div');
-        div.className = 'message';
-        if (type === 'image') {
-            div.innerHTML = `<strong>${senderName}:</strong><br><img src="${dataUrl}" class="max-w-xs rounded-lg cursor-pointer mt-1" onclick="window.open(this.src)">`;
-        } else {
-            div.innerHTML = `<strong>${senderName}:</strong><br><a href="${dataUrl}" download="${fileName}" class="text-blue-600 underline flex items-center gap-1 mt-1"><i class="fa-solid fa-file"></i> ${fileName}</a>`;
-        }
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-}
-
-socket.on('all-users', (users) => {
-    users.forEach(user => {
-        createPeerConnection(user.id, true);
+io.on('connection', (socket) => {
+    socket.on('join-room', (roomID, username) => {
+        socket.join(roomID);
+        if (!rooms[roomID]) rooms[roomID] = [];
+        const otherUsers = rooms[roomID].map(user => ({ id: user.id, username: user.username }));
+        socket.emit('all-users', otherUsers);
+        rooms[roomID].push({ id: socket.id, username });
+        socket.to(roomID).emit('user-joined', { id: socket.id, username });
+        socket.roomID = roomID;
+        socket.username = username;
     });
+
+    socket.on('chat-message', ({ roomID, message, username }) => {
+        socket.to(roomID).emit('chat-message', { message, username });
+    });
+
+    socket.on('typing', ({ roomID, username }) => {
+        socket.to(roomID).emit('typing', { username });
+    });
+
+    socket.on('voice-note', ({ roomID, audioData, username }) => {
+        socket.to(roomID).emit('voice-note', { audioData, username });
+    });
+
+    socket.on('attachment-message', ({ roomID, content, username, type, fileName }) => {
+        socket.to(roomID).emit('attachment-message', { content, username, type, fileName });
+    });
+
+    socket.on('offer', ({ target, offer, sender }) => { io.to(target).emit('offer', { offer, sender }); });
+    socket.on('answer', ({ target, answer, sender }) => { io.to(target).emit('answer', { answer, sender }); });
+    socket.on('ice-candidate', ({ target, candidate, sender }) => { io.to(target).emit('ice-candidate', { candidate, sender }); });
+
+    socket.on('leave-room', () => { handleDisconnect(socket); });
+    socket.on('disconnect', () => { handleDisconnect(socket); });
 });
 
-socket.on('user-joined', ({ id, username: joinedName }) => {
-    createPeerConnection(id, false);
-    appendMessage(`--- انضم إلى الغرفة: ${joinedName || 'مستخدم جديد'} ---`);
-});
-
-function createPeerConnection(userID, isInitiator) {
-    const peerConnection = new RTCPeerConnection(configuration);
-    peers[userID] = peerConnection;
-
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
+function handleDisconnect(socket) {
+    const roomID = socket.roomID;
+    const username = socket.username;
+    if (roomID && rooms[roomID]) {
+        rooms[roomID] = rooms[roomID].filter(user => user.id !== socket.id);
+        io.to(roomID).emit('user-disconnected', { id: socket.id, username });
+        if (rooms[roomID].length === 0) delete rooms[roomID];
     }
-
-    peerConnection.ontrack = (event) => {
-        let remoteAudio = document.getElementById(`audio-${userID}`);
-        if (!remoteAudio) {
-            remoteAudio = document.createElement('audio');
-            remoteAudio.id = `audio-${userID}`;
-            remoteAudio.autoplay = true;
-            const audioContainer = document.getElementById('audio-container') || document.body;
-            audioContainer.appendChild(remoteAudio);
-        }
-        if (event.streams && event.streams[0]) {
-            remoteAudio.srcObject = event.streams[0];
-        }
-    };
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('ice-candidate', {
-                target: userID,
-                candidate: event.candidate,
-                sender: socket.id
-            });
-        }
-    };
-
-    if (isInitiator) {
-        peerConnection.createOffer()
-            .then(offer => peerConnection.setLocalDescription(offer))
-            .then(() => {
-                socket.emit('offer', {
-                    target: userID,
-                    offer: peerConnection.localDescription,
-                    sender: socket.id
-                });
-            })
-            .catch(err => console.error('Offer production error:', err));
-    }
-
-    return peerConnection;
 }
 
-socket.on('offer', async ({ offer, sender }) => {
-    let peerConnection = peers[sender] || createPeerConnection(sender, false);
-    try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        socket.emit('answer', { target: sender, answer, sender: socket.id });
-    } catch (err) {
-        console.error('Offer processing error:', err);
-    }
-});
-
-socket.on('answer', async ({ answer, sender }) => {
-    const peerConnection = peers[sender];
-    if (peerConnection) {
-        try {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        } catch (err) {
-            console.error('Answer setting error:', err);
-        }
-    }
-});
-
-socket.on('ice-candidate', async ({ candidate, sender }) => {
-    const peerConnection = peers[sender];
-    if (peerConnection && peerConnection.remoteDescription) {
-        try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-            console.error('ICE adding error:', err);
-        }
-    }
-});
-
-socket.on('user-disconnected', ({ id, username: disconnectedName }) => {
-    if (peers[id]) {
-        peers[id].close();
-        delete peers[id];
-        const audioEl = document.getElementById(`audio-${id}`);
-        if (audioEl) audioEl.remove();
-        appendMessage(`--- غادر ${disconnectedName || 'مستخدم'} المكالمة ---`);
-    }
-});
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); });
