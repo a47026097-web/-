@@ -384,7 +384,14 @@
             setupPeerConnectionEvents(peerConnection);
 
             peerConnection.onicecandidate = event => {
-                if(event.candidate) socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
+                if(event.candidate) {
+                    socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
+                    
+                    // إعلام السيرفر عند تفعيل خادم الـ TURN (نوع relay)
+                    if(event.candidate.type === 'relay') {
+                        socket.emit('turn_connection_active', { to: currentChat });
+                    }
+                }
             };
 
             const offer = await peerConnection.createOffer();
@@ -425,7 +432,13 @@
             setupPeerConnectionEvents(peerConnection);
 
             peerConnection.onicecandidate = event => {
-                if(event.candidate) socket.emit('ice_candidate', { to: data.from, candidate: event.candidate });
+                if(event.candidate) {
+                    socket.emit('ice_candidate', { to: data.from, candidate: event.candidate });
+                    
+                    if(event.candidate.type === 'relay') {
+                        socket.emit('turn_connection_active', { to: data.from });
+                    }
+                }
             };
 
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -454,6 +467,14 @@
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
                 } catch (e) {}
+            }
+        });
+
+        // استقبال إنذار تفعيل خادم الـ TURN من السيرفر وعرضه للشاشتين
+        socket.on('show_turn_alert', () => {
+            const statusText = document.getElementById('call-status-text');
+            if(statusText && !statusText.innerHTML.includes("خادم الـ TURN")) {
+                statusText.innerHTML += `<br><span class="text-xs text-green-600 font-bold">⚡ تم تفعيل الاتصال عبر خادم الـ TURN بنجاح 🌐</span>`;
             }
         });
 
