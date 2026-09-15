@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب ويب - متكامل مع المكالمات والإشعارات</title>
+    <title>واتساب ويب - متكامل مع المكالمات الجماعية والملفات</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -73,14 +73,25 @@
             <div class="bg-[#f0f2f5] p-3 flex flex-col">
                 <div id="typing-indicator" class="text-xs text-[#00a884] h-4 mb-1 px-2 font-semibold hidden">يكتب الآن...</div>
                 <div class="flex items-center space-x-3 space-x-reverse">
+                    <!-- إرسال صورة -->
                     <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال صورة">
                         <i class="fa-solid fa-image"></i>
-                        <input type="file" accept="image/*" class="hidden" onchange="sendImage(event)">
+                        <input type="file" accept="image/*" class="hidden" onchange="sendAttachment(event, 'image')">
                     </label>
 
-                    <button id="mic-btn" onclick="toggleVoiceRecording()" class="text-gray-600 hover:text-red-600 text-xl transition" title="تسجيل رسالة صوتية">
-                        <i class="fa-solid fa-microphone"></i>
-                    </button>
+                    <!-- إرسال ملف / مستند -->
+                    <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال ملف">
+                        <i class="fa-solid fa-file-arrow-up"></i>
+                        <input type="file" class="hidden" onchange="sendAttachment(event, 'file')">
+                    </label>
+
+                    <!-- زر تسجيل الصوت مع العداد -->
+                    <div class="flex items-center space-x-1 space-x-reverse">
+                        <button id="mic-btn" onclick="toggleVoiceRecording()" class="text-gray-600 hover:text-red-600 text-xl transition" title="تسجيل رسالة صوتية">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <span id="recording-timer" class="text-xs text-red-600 font-bold hidden">00:00</span>
+                    </div>
 
                     <input type="text" id="message-input" placeholder="اكتب رسالة..." class="flex-1 bg-white px-4 py-2 rounded-lg border-none focus:outline-none" oninput="notifyTyping()" onkeypress="handleKeyPress(event)">
                     
@@ -90,15 +101,17 @@
         </div>
     </div>
 
-    <!-- نافذة المكالمة -->
+    <!-- نافذة المكالمة (تدعم الفردي والجماعي) -->
     <div id="call-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
-        <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-[500px]">
+        <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-[600px]">
             <h3 id="call-status-text" class="text-lg font-bold mb-4">جاري الاتصال...</h3>
-            <div class="flex justify-center space-x-4 mb-4">
+            
+            <!-- حاوية عرض الفيديو والصوت للمتصلين -->
+            <div id="video-grid" class="flex flex-wrap justify-center gap-2 mb-4 max-h-[350px] overflow-y-auto">
                 <video id="localVideo" autoplay muted class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>
-                <video id="remoteVideo" autoplay class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>
-                <audio id="remoteAudio" autoplay></audio>
             </div>
+            <audio id="remoteAudio" autoplay></audio>
+
             <div id="call-actions">
                 <button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>
             </div>
@@ -115,40 +128,20 @@
         let groupsList = [];
         let typingTimeout;
         
-        let peerConnection;
+        let peers = {}; // تخزين اتصالات WebRTC للمكالمات الجماعية والفردية
         let localStream;
-        let remoteStream;
         let incomingCallData = null;
 
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
+        let recordTimerInterval;
+        let recordSeconds = 0;
 
         const rtcConfig = {
             iceServers: [
-                {
-                    urls: "stun:stun.relay.metered.ca:80"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:80",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:443",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:443?transport=tcp",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                }
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" }
             ]
         };
 
@@ -244,19 +237,28 @@
             document.getElementById('message-input').value = '';
         }
 
-        function sendImage(event) {
+        function sendAttachment(event, type) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onloadend = () => {
-                const msgData = { chat: currentChat, username: myUsername, type: 'image', content: reader.result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+                const msgData = { 
+                    chat: currentChat, 
+                    username: myUsername, 
+                    type: type === 'image' ? 'image' : 'file', 
+                    content: reader.result, 
+                    fileName: file.name,
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                };
                 socket.emit('send_message', msgData);
             };
         }
 
         async function toggleVoiceRecording() {
             const micBtn = document.getElementById('mic-btn');
+            const timerEl = document.getElementById('recording-timer');
+            
             if (!isRecording) {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -278,6 +280,16 @@
                     mediaRecorder.start();
                     isRecording = true;
                     micBtn.classList.add('text-red-600', 'animate-pulse');
+                    timerEl.classList.remove('hidden');
+                    
+                    recordSeconds = 0;
+                    recordTimerInterval = setInterval(() => {
+                        recordSeconds++;
+                        let mins = Math.floor(recordSeconds / 60).toString().padStart(2, '0');
+                        let secs = (recordSeconds % 60).toString().padStart(2, '0');
+                        timerEl.innerText = `${mins}:${secs}`;
+                    }, 1000);
+
                 } catch(e) {
                     alert("تعذر الوصول إلى المايكروفون!");
                 }
@@ -285,6 +297,8 @@
                 mediaRecorder.stop();
                 isRecording = false;
                 micBtn.classList.remove('text-red-600', 'animate-pulse');
+                timerEl.classList.add('hidden');
+                clearInterval(recordTimerInterval);
             }
         }
 
@@ -311,9 +325,8 @@
             
             if(msg.username !== myUsername) {
                 playSound('message');
-                
                 if (window.Notification && Notification.permission === "granted") {
-                    let bodyText = msg.type === 'text' ? msg.text : (msg.type === 'image' ? 'أرسل صورة' : 'أرسل تسجيل صوتي');
+                    let bodyText = msg.type === 'text' ? msg.text : (msg.type === 'image' ? 'أرسل صورة' : (msg.type === 'file' ? 'أرسل ملف' : 'أرسل تسجيل صوتي'));
                     new Notification(`رسالة جديدة من ${msg.username} (${msg.chat})`, {
                         body: bodyText,
                         icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png'
@@ -332,6 +345,8 @@
                     contentHtml = `<audio controls class="w-48 h-10"><source src="${m.content}" type="audio/webm"></audio>`;
                 } else if(m.type === 'image') {
                     contentHtml = `<img src="${m.content}" class="max-w-xs rounded-lg cursor-pointer" onclick="window.open(this.src)">`;
+                } else if(m.type === 'file') {
+                    contentHtml = `<a href="${m.content}" download="${m.fileName || 'file'}" class="flex items-center space-x-2 space-x-reverse text-blue-600 underline font-semibold"><i class="fa-solid fa-file-arrow-down text-xl"></i><span>${m.fileName || 'تحميل الملف'}</span></a>`;
                 } else {
                     contentHtml = `<div class="text-sm text-gray-800">${m.text}</div>`;
                 }
@@ -351,55 +366,26 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function setupPeerConnectionEvents(pc) {
-            pc.ontrack = event => {
-                remoteStream = event.streams[0];
-                if (remoteStream.getVideoTracks().length > 0) {
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    remoteVideo.classList.remove('hidden');
-                    remoteVideo.srcObject = remoteStream;
-                } else {
-                    const remoteAudio = document.getElementById('remoteAudio');
-                    remoteAudio.srcObject = remoteStream;
-                    remoteAudio.play().catch(e => console.log("تعذر تشغيل الصوت تلقائياً:", e));
-                }
-            };
-        }
-
+        // --- نظام المكالمات الجماعية والفردية (WebRTC Mesh) ---
         async function startCall(type) {
-            if(groupsList.includes(currentChat)) return alert("المكالمات الفردية متاحة مع المستخدمين فقط!");
             document.getElementById('call-modal').classList.remove('hidden');
             document.getElementById('call-status-text').innerText = "جاري الاتصال بـ " + currentChat;
-            document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
-
+            
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+            
+            const localVideo = document.getElementById('localVideo');
             if(type === 'video') {
-                document.getElementById('localVideo').classList.remove('hidden');
-                document.getElementById('localVideo').srcObject = localStream;
+                localVideo.classList.remove('hidden');
+                localVideo.srcObject = localStream;
+            } else {
+                localVideo.classList.add('hidden');
             }
 
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            setupPeerConnectionEvents(peerConnection);
-
-            peerConnection.onicecandidate = event => {
-                if(event.candidate) {
-                    socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
-                    
-                    // إعلام السيرفر عند تفعيل خادم الـ TURN (نوع relay)
-                    if(event.candidate.type === 'relay') {
-                        socket.emit('turn_connection_active', { to: currentChat });
-                    }
-                }
-            };
-
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('call_user', { to: currentChat, from: myUsername, offer: offer, type: type });
+            // إذا كانت مجموعة، نرسل طلب اتصال لكل الأعضاء أو للسيرفر
+            socket.emit('start_group_call', { chat: currentChat, type: type, from: myUsername });
         }
 
-        socket.on('incoming_call', (data) => {
+        socket.on('incoming_call', async (data) => {
             incomingCallData = data;
             playSound('ring');
             document.getElementById('call-modal').classList.remove('hidden');
@@ -416,74 +402,87 @@
             const data = incomingCallData;
             if(!data) return;
             
-            currentChat = data.from;
-            document.getElementById('call-status-text').innerText = "جاري الاتصال مع " + data.from;
+            document.getElementById('call-status-text').innerText = "المكالمة جارية مع " + data.from;
             document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
 
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: data.type === 'video' });
             if(data.type === 'video') {
-                document.getElementById('localVideo').classList.remove('hidden');
-                document.getElementById('localVideo').srcObject = localStream;
+                const localVideo = document.getElementById('localVideo');
+                localVideo.classList.remove('hidden');
+                localVideo.srcObject = localStream;
             }
 
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            createPeerConnection(data.from, true, data.offer);
+        }
 
-            setupPeerConnectionEvents(peerConnection);
+        function createPeerConnection(targetUser, isReceiver, offer = null) {
+            const pc = new RTCPeerConnection(rtcConfig);
+            peers[targetUser] = pc;
 
-            peerConnection.onicecandidate = event => {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.ontrack = event => {
+                let remoteVideo = document.getElementById(`remoteVideo-${targetUser}`);
+                if (!remoteVideo) {
+                    remoteVideo = document.createElement('video');
+                    remoteVideo.id = `remoteVideo-${targetUser}`;
+                    remoteVideo.autoplay = true;
+                    remoteVideo.className = "w-48 h-36 bg-black rounded-lg object-cover";
+                    document.getElementById('video-grid').appendChild(remoteVideo);
+                }
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            pc.onicecandidate = event => {
                 if(event.candidate) {
-                    socket.emit('ice_candidate', { to: data.from, candidate: event.candidate });
-                    
-                    if(event.candidate.type === 'relay') {
-                        socket.emit('turn_connection_active', { to: data.from });
-                    }
+                    socket.emit('ice_candidate', { to: targetUser, candidate: event.candidate });
                 }
             };
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('make_answer', { to: data.from, answer: answer, from: myUsername });
+            if (isReceiver) {
+                pc.setRemoteDescription(new RTCSessionDescription(offer)).then(async () => {
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('make_answer', { to: targetUser, answer: answer, from: myUsername });
+                });
+            } else {
+                pc.createOffer().then(offer => {
+                    pc.setLocalDescription(offer);
+                    socket.emit('call_user', { to: targetUser, from: myUsername, offer: offer, type: 'video' });
+                });
+            }
         }
+
+        socket.on('call_answered', async (data) => {
+            if (peers[data.from]) {
+                await peers[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
+                document.getElementById('call-status-text').innerText = "المكالمة جارية...";
+            }
+        });
+
+        socket.on('ice_candidate', async (data) => {
+            if (peers[data.from] && data.candidate) {
+                try {
+                    await peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {}
+            }
+        });
 
         function rejectCall() {
             endCall();
         }
 
-        socket.on('call_answered', async (data) => {
-            try {
-                if (peerConnection) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                    document.getElementById('call-status-text').innerText = "المكالمة جارية...";
-                }
-            } catch (e) {
-                console.error("خطأ في قبول المكالمة:", e);
-            }
-        });
-
-        socket.on('ice_candidate', async (data) => {
-            if (peerConnection && data.candidate) {
-                try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                } catch (e) {}
-            }
-        });
-
-        // استقبال إنذار تفعيل خادم الـ TURN من السيرفر وعرضه للشاشتين
-        socket.on('show_turn_alert', () => {
-            const statusText = document.getElementById('call-status-text');
-            if(statusText && !statusText.innerHTML.includes("خادم الـ TURN")) {
-                statusText.innerHTML += `<br><span class="text-xs text-green-600 font-bold">⚡ تم تفعيل الاتصال عبر خادم الـ TURN بنجاح 🌐</span>`;
-            }
-        });
-
         function endCall() {
             if(localStream) localStream.getTracks().forEach(t => t.stop());
-            if(peerConnection) peerConnection.close();
+            for(let user in peers) {
+                peers[user].close();
+            }
+            peers = {};
             document.getElementById('call-modal').classList.add('hidden');
             document.getElementById('localVideo').classList.add('hidden');
-            document.getElementById('remoteVideo').classList.add('hidden');
+            // تنظيف شبكة الفيديو
+            const grid = document.getElementById('video-grid');
+            grid.innerHTML = '<video id="localVideo" autoplay muted class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>';
             incomingCallData = null;
         }
     </script>
