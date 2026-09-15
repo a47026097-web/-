@@ -1,50 +1,41 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const path = require('path');
 
-// تحسين: تفعيل CORS للسماح بالاتصال من أي مكان عالمياً دون مشاكل أمان
-const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-});
+app.use(express.static(path.join(__dirname, '.')));
 
-// تقديم الملفات الثابتة (مثل index.html) من نفس المجلد
-app.use(express.static(__dirname));
-
-let users = {};          // تخزين المستخدمين المتصلين وأسمائهم
-let groupsList = ['الدردشة العامة']; // قائمة المجموعات
-let allMessages = [];    // تخزين سجل الرسائل مؤقتاً في الذاكرة
+const users = {}; // حفظ المستخدمين مع Socket ID الخاص بهم
+const groups = ["الدردشة العامة"];
+const messages = []; // حفظ سجل الرسائل
 
 io.on('connection', (socket) => {
-    let currentUsername = null;
-
-    // التحقق من اسم المستخدم وتسجيل دخوله
+    
+    // التحقق من اسم المستخدم وتسجيله
     socket.on('verify_user', (username) => {
-        currentUsername = username;
-        users[username] = { socketId: socket.id, status: 'متصل الآن' };
+        if (!username) return;
+        users[username] = { id: socket.id, status: 'متصل' };
+        socket.username = username;
         
         socket.emit('auth_success', username);
-        socket.emit('load_history', allMessages);
+        socket.emit('load_history', messages);
+        
         io.emit('update_users', users);
-        io.emit('update_groups', groupsList);
+        io.emit('update_groups', groups);
     });
 
     // إنشاء مجموعة جديدة
     socket.on('create_group', (groupName) => {
-        if (groupName && !groupsList.includes(groupName)) {
-            groupsList.push(groupName);
-            io.emit('update_groups', groupsList);
+        if (groupName && !groups.includes(groupName)) {
+            groups.push(groupName);
+            io.emit('update_groups', groups);
         }
     });
 
-    // إرسال واستقبال الرسائل والملفات
+    // استقبال وإرسال الرسائل والصور والصوتيات
     socket.on('send_message', (msgData) => {
-        allMessages.push(msgData);
+        messages.push(msgData);
         io.emit('receive_message', msgData);
     });
 
@@ -53,11 +44,15 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('display_typing', data);
     });
 
-    // نظام الاتصال المرئي والصوتي (WebRTC Signaling)
+    // ==========================================
+    // إدارة إشارات مكالمات WebRTC (الصوت والفيديو)
+    // ==========================================
+    
+    // طلب مكالمة جديد موجه لمستخدم معين
     socket.on('call_user', (data) => {
         const targetUser = users[data.to];
         if (targetUser) {
-            io.to(targetUser.socketId).emit('incoming_call', {
+            io.to(targetUser.id).emit('incoming_call', {
                 from: data.from,
                 offer: data.offer,
                 type: data.type
@@ -65,39 +60,38 @@ io.on('connection', (socket) => {
         }
     });
 
+    // قبول المكالمة وإرسال الرد (Answer)
     socket.on('make_answer', (data) => {
         const targetUser = users[data.to];
         if (targetUser) {
-            io.to(targetUser.socketId).emit('call_answered', {
+            io.to(targetUser.id).emit('call_answered', {
                 answer: data.answer,
                 from: data.from
             });
         }
     });
 
+    // تبادل بيانات المسارات (ICE Candidates)
     socket.on('ice_candidate', (data) => {
         const targetUser = users[data.to];
         if (targetUser) {
-            io.to(targetUser.socketId).emit('ice_candidate', {
-                candidate: data.candidate
+            io.to(targetUser.id).emit('ice_candidate', {
+                candidate: data.candidate,
+                from: data.from
             });
         }
     });
 
-    // التعامل مع قطع الاتصال وإزالة المستخدم من القائمة فوراً
+    // عند انقطاع الاتصال أو إغلاق الصفحة
     socket.on('disconnect', () => {
-        if (currentUsername && users[currentUsername]) {
-            delete users[currentUsername];
+        if (socket.username && users[socket.username]) {
+            delete users[socket.username];
             io.emit('update_users', users);
         }
     });
 });
 
-// التعديل مالتك: تثبيت تشغيل السيرفر على البورت 8080 لتجنب أي تعارض
-const PORT = 8080;
-server.listen(PORT, () => {
-    console.log(`========================================`);
-    console.log(`✅ كودك الأصلي يعمل بنجاح واستقرار!`);
-    console.log(`📡 السيرفر شغال الآن على البورت: ${PORT}`);
-    console.log(`========================================`);
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => {
+    console.log('Server is running on port ' + PORT);
 });
