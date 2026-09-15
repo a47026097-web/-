@@ -1,13 +1,11 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
-const cors = require('cors'); // تحسين: حزمة السماح بالاتصال الخارجي
 
 const app = express();
 const server = http.createServer(app);
 
-// تحسين: تفعيل الـ CORS لكي يشتغل التطبيق عالمياً ومن أي متصفح
+// تحسين: تفعيل CORS للسماح بالاتصال من أي مكان عالمياً دون مشاكل أمان
 const io = new Server(server, {
     cors: {
         origin: "*",
@@ -15,43 +13,91 @@ const io = new Server(server, {
     }
 });
 
-// تقديم الملفات الثابتة من مجلد المشروع
-app.use(express.static(path.join(__dirname)));
-app.use(cors()); // تحسين أمان الاتصال للمتصفحات
+// تقديم الملفات الثابتة (مثل index.html) من نفس المجلد
+app.use(express.static(__dirname));
 
-// مصفوفة لحفظ الرسائل مؤقتاً في الذاكرة لكي لا تضيع عند مغادرة الدردشة
-let messages = [];
+let users = {};          // تخزين المستخدمين المتصلين وأسمائهم
+let groupsList = ['الدردشة العامة']; // قائمة المجموعات
+let allMessages = [];    // تخزين سجل الرسائل مؤقتاً في الذاكرة
 
 io.on('connection', (socket) => {
-    console.log('مستخدم متصل جديد...');
+    let currentUsername = null;
 
-    // عند اتصال المستخدم، أرسل له سجل الرسائل القديمة فوراً
-    socket.emit('load_history', messages);
-
-    // استقبال رسالة جديدة من أي مستخدم
-    socket.on('send_message', (data) => {
-        // حفظ الرسالة في المصفوفة
-        messages.push(data);
+    // التحقق من اسم المستخدم وتسجيل دخوله
+    socket.on('verify_user', (username) => {
+        currentUsername = username;
+        users[username] = { socketId: socket.id, status: 'متصل الآن' };
         
-        // إذا زادت الرسائل عن 100 رسالة، احذف القديمة لكي يبقى السيرفر خفيفاً
-        if (messages.length > 100) {
-            messages.shift();
-        }
-
-        // إرسال الرسالة لجميع المتصلين (بمن فيهم المرسل)
-        io.emit('receive_message', data);
+        socket.emit('auth_success', username);
+        socket.emit('load_history', allMessages);
+        io.emit('update_users', users);
+        io.emit('update_groups', groupsList);
     });
 
+    // إنشاء مجموعة جديدة
+    socket.on('create_group', (groupName) => {
+        if (groupName && !groupsList.includes(groupName)) {
+            groupsList.push(groupName);
+            io.emit('update_groups', groupsList);
+        }
+    });
+
+    // إرسال واستقبال الرسائل والملفات
+    socket.on('send_message', (msgData) => {
+        allMessages.push(msgData);
+        io.emit('receive_message', msgData);
+    });
+
+    // مؤشر الكتابة
+    socket.on('typing', (data) => {
+        socket.broadcast.emit('display_typing', data);
+    });
+
+    // نظام الاتصال المرئي والصوتي (WebRTC Signaling)
+    socket.on('call_user', (data) => {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('incoming_call', {
+                from: data.from,
+                offer: data.offer,
+                type: data.type
+            });
+        }
+    });
+
+    socket.on('make_answer', (data) => {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('call_answered', {
+                answer: data.answer,
+                from: data.from
+            });
+        }
+    });
+
+    socket.on('ice_candidate', (data) => {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.socketId).emit('ice_candidate', {
+                candidate: data.candidate
+            });
+        }
+    });
+
+    // التعامل مع قطع الاتصال وإزالة المستخدم من القائمة فوراً
     socket.on('disconnect', () => {
-        console.log('مستخدم غادر الدردشة.');
+        if (currentUsername && users[currentUsername]) {
+            delete users[currentUsername];
+            io.emit('update_users', users);
+        }
     });
 });
 
-// التعديل مالتك: تشغيل السيرفر مباشرة على البورت 8080 لتفادي أي تعليق
+// التعديل مالتك: تثبيت تشغيل السيرفر على البورت 8080 لتجنب أي تعارض
 const PORT = 8080;
 server.listen(PORT, () => {
     console.log(`========================================`);
-    console.log(`   ✅ كودك الأصلي يعمل بنجاح واستقرار!`);
+    console.log(`✅ كودك الأصلي يعمل بنجاح واستقرار!`);
     console.log(`📡 السيرفر شغال الآن على البورت: ${PORT}`);
     console.log(`========================================`);
 });
