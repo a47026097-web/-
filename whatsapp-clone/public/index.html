@@ -1,100 +1,491 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محادثة خاصة وآمنة</title>
-    <!-- مكتبة Socket.io للاتصال الفوري -->
-    <script src="/socket.io/socket.io.js"></script>
+    <title>واتساب ويب - متكامل مع المكالمات الجماعية والملفات</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
-        body { background-color: #efeae2; display: flex; flex-direction: column; height: 100vh; }
-        header { background-color: #00a884; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; }
-        #chat-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .message { max-width: 70%; padding: 10px 15px; border-radius: 8px; word-wrap: break-word; font-size: 14px; position: relative; }
-        .message.incoming { background-color: #ffffff; align-self: flex-start; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .message.outgoing { background-color: #d9fdd3; align-self: flex-end; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .sender-name { font-size: 11px; color: #005c4b; font-weight: bold; margin-bottom: 3px; display: block; }
-        .message-text { color: #111; }
-        #form { display: flex; padding: 10px; background-color: #f0f2f5; }
-        #input { flex: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 14px; background: #fff; }
-        #send-btn { background-color: #00a884; color: white; border: none; padding: 0 20px; margin-right: 8px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        #send-btn:hover { background-color: #008f72; }
+        body { background-color: #dadbd4; font-family: Tahoma, sans-serif; }
+        .whatsapp-bg { background-color: #efeae2; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); }
     </style>
 </head>
-<body>
+<body class="h-screen flex items-center justify-center p-0 md:p-4 overflow-hidden">
 
-    <header>محادثة خاصة عائلية</header>
+    <!-- شاشة تسجيل الدخول -->
+    <div id="login-screen" class="fixed inset-0 bg-[#00a884] flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-96 text-center">
+            <h2 class="text-2xl font-bold text-[#00a884] mb-4">تسجيل الدخول إلى واتساب</h2>
+            <input type="text" id="username-input" placeholder="أدخل اسمك الكريم..." class="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:border-[#00a884]">
+            <button onclick="login()" class="w-full bg-[#00a884] text-white py-2 rounded-lg font-bold hover:bg-[#008f6f] transition">دخول</button>
+        </div>
+    </div>
 
-    <div id="chat-container"></div>
+    <!-- التطبيق الرئيسي -->
+    <div id="app-screen" class="w-full h-full max-w-7xl max-h-[95vh] bg-[#f0f2f5] shadow-2xl flex rounded-none md:rounded-lg overflow-hidden hidden">
+        
+        <!-- الشريط الجانبي -->
+        <div class="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+            <div class="bg-[#f0f2f5] p-4 flex justify-between items-center border-b">
+                <span id="my-username-display" class="font-bold text-gray-700"></span>
+                <div class="flex space-x-3 space-x-reverse">
+                    <button onclick="createGroup()" class="text-gray-600 hover:text-[#00a884]" title="إنشاء مجموعة"><i class="fa-solid fa-users-rectangle text-xl"></i></button>
+                </div>
+            </div>
+            
+            <!-- شريط البحث -->
+            <div class="p-2 bg-white border-b">
+                <div class="flex items-center bg-[#f0f2f5] px-3 py-1.5 rounded-lg">
+                    <i class="fa-solid fa-search text-gray-400 ml-2"></i>
+                    <input type="text" id="search-input" placeholder="بحث عن محادثة..." oninput="filterChats()" class="w-full bg-transparent text-sm focus:outline-none">
+                </div>
+            </div>
 
-    <form id="form">
-        <input id="input" autocomplete="off" placeholder="اكتب رسالة..." required />
-        <button id="send-btn">إرسال</button>
-    </form>
+            <div id="chats-list" class="flex-1 overflow-y-auto divide-y divide-gray-100">
+                <!-- المحادثات والأعضاء -->
+            </div>
+        </div>
 
+        <!-- نافذة المحادثة -->
+        <div class="w-2/3 flex flex-col whatsapp-bg">
+            <!-- رأس المحادثة -->
+            <div class="bg-[#f0f2f5] p-4 flex justify-between items-center border-b">
+                <div class="flex items-center space-x-3 space-x-reverse">
+                    <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold"><i class="fa-solid fa-user"></i></div>
+                    <div>
+                        <h4 id="current-chat-title" class="font-bold text-gray-800">اختر محادثة لبدء الدردشة</h4>
+                        <span id="current-chat-status" class="text-xs text-gray-500"></span>
+                    </div>
+                </div>
+                <div class="flex space-x-4 space-x-reverse">
+                    <button onclick="startCall('audio')" class="text-gray-600 hover:text-[#00a884] text-xl" title="مكالمة صوتية"><i class="fa-solid fa-phone"></i></button>
+                    <button onclick="startCall('video')" class="text-gray-600 hover:text-[#00a884] text-xl" title="مكالمة فيديو"><i class="fa-solid fa-video"></i></button>
+                </div>
+            </div>
+
+            <!-- رسائل المحادثة -->
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- الرسائل -->
+            </div>
+
+            <!-- إدخال الرسالة والأزرار الإضافية -->
+            <div class="bg-[#f0f2f5] p-3 flex flex-col">
+                <div id="typing-indicator" class="text-xs text-[#00a884] h-4 mb-1 px-2 font-semibold hidden">يكتب الآن...</div>
+                <div class="flex items-center space-x-3 space-x-reverse">
+                    <!-- إرسال صورة -->
+                    <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال صورة">
+                        <i class="fa-solid fa-image"></i>
+                        <input type="file" accept="image/*" class="hidden" onchange="sendAttachment(event, 'image')">
+                    </label>
+
+                    <!-- إرسال ملف / مستند -->
+                    <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال ملف">
+                        <i class="fa-solid fa-file-arrow-up"></i>
+                        <input type="file" class="hidden" onchange="sendAttachment(event, 'file')">
+                    </label>
+
+                    <!-- زر تسجيل الصوت مع العداد -->
+                    <div class="flex items-center space-x-1 space-x-reverse">
+                        <button id="mic-btn" onclick="toggleVoiceRecording()" class="text-gray-600 hover:text-red-600 text-xl transition" title="تسجيل رسالة صوتية">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <span id="recording-timer" class="text-xs text-red-600 font-bold hidden">00:00</span>
+                    </div>
+
+                    <input type="text" id="message-input" placeholder="اكتب رسالة..." class="flex-1 bg-white px-4 py-2 rounded-lg border-none focus:outline-none" oninput="notifyTyping()" onkeypress="handleKeyPress(event)">
+                    
+                    <button onclick="sendMessage()" class="bg-[#00a884] text-white px-4 py-2 rounded-lg hover:bg-[#008f6f]"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة المكالمة (تدعم الفردي والجماعي) -->
+    <div id="call-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-[600px]">
+            <h3 id="call-status-text" class="text-lg font-bold mb-4">جاري الاتصال...</h3>
+            
+            <!-- حاوية عرض الفيديو والصوت للمتصلين -->
+            <div id="video-grid" class="flex flex-wrap justify-center gap-2 mb-4 max-h-[350px] overflow-y-auto">
+                <video id="localVideo" autoplay muted class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>
+            </div>
+            <audio id="remoteAudio" autoplay></audio>
+
+            <div id="call-actions">
+                <button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
+        let myUsername = "";
+        let currentChat = "الدردشة العامة";
+        let allMessages = [];
+        let usersData = {};
+        let groupsList = [];
+        let typingTimeout;
+        
+        let peers = {}; // تخزين اتصالات WebRTC للمكالمات الجماعية والفردية
+        let localStream;
+        let incomingCallData = null;
 
-        // 1. إدارة اسم المستخدم وحفظه تلقائياً في المتصفح
-        let username = localStorage.getItem('chat_username');
-        if (!username || username.trim() === "") {
-            username = prompt("أدخل اسمك لتبدأ المحادثة:");
-            if (!username) username = "مستخدم مجهول";
-            localStorage.setItem('chat_username', username.trim());
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordTimerInterval;
+        let recordSeconds = 0;
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" }
+            ]
+        };
+
+        function playSound(type) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                if(type === 'message') {
+                    osc.frequency.setValueAtTime(800, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.1);
+                } else if(type === 'ring') {
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.4);
+                }
+            } catch(e) {}
         }
 
-        const form = document.getElementById('form');
-        const input = document.getElementById('input');
-        const chatContainer = document.getElementById('chat-container');
-
-        // دالة لإضافة الرسالة على الشاشة
-        function appendMessage(data) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-
-            // تحديد ما إذا كانت الرسالة مرسلة أو مستلمة
-            if (data.username === username) {
-                messageDiv.classList.add('outgoing');
-            } else {
-                messageDiv.classList.add('incoming');
+        function login() {
+            const input = document.getElementById('username-input').value.trim();
+            if(!input) return alert("يرجى إدخال اسم صحيح");
+            
+            if (window.Notification && Notification.permission !== "granted") {
+                Notification.requestPermission();
             }
 
-            messageDiv.innerHTML = `
-                <span class="sender-name">${data.username}</span>
-                <span class="message-text">${data.text}</span>
-            `;
-
-            chatContainer.appendChild(messageDiv);
-            // النزول تلقائياً لأسفل المحادثة
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            socket.emit('verify_user', input);
         }
 
-        // 2. تحميل المحادثات القديمة فور فتح الموقع
-        socket.on('load_history', (history) => {
-            chatContainer.innerHTML = ""; // تفريغ الحاوية أولاً
-            history.forEach(msg => {
-                appendMessage(msg);
+        socket.on('auth_success', (username) => {
+            myUsername = username;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            document.getElementById('my-username-display').innerText = username;
+            switchChat("الدردشة العامة");
+        });
+
+        socket.on('update_users', (data) => { usersData = data; renderChatsList(); });
+        socket.on('update_groups', (groups) => { groupsList = groups; renderChatsList(); });
+
+        function renderChatsList(filter = '') {
+            const list = document.getElementById('chats-list');
+            list.innerHTML = '';
+            
+            groupsList.forEach(g => {
+                if(g.includes(filter)) {
+                    list.innerHTML += `<div onclick="switchChat('${g}')" class="p-3 hover:bg-gray-100 cursor-pointer flex items-center justify-between ${currentChat === g ? 'bg-gray-100' : ''}">
+                        <span class="font-bold text-gray-800"><i class="fa-solid fa-users text-[#00a884] ml-2"></i> ${g}</span>
+                    </div>`;
+                }
             });
-        });
 
-        // إرسال الرسالة عند الضغط على زر إرسال
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (input.value) {
-                const messageData = {
-                    username: username,
-                    text: input.value
+            for(let u in usersData) {
+                if(u !== myUsername && u.includes(filter)) {
+                    list.innerHTML += `<div onclick="switchChat('${u}')" class="p-3 hover:bg-gray-100 cursor-pointer flex items-center justify-between ${currentChat === u ? 'bg-gray-100' : ''}">
+                        <span class="font-bold text-gray-800"><i class="fa-solid fa-user text-gray-500 ml-2"></i> ${u}</span>
+                        <span class="text-xs text-green-600">${usersData[u].status}</span>
+                    </div>`;
+                }
+            }
+        }
+
+        function filterChats() {
+            const query = document.getElementById('search-input').value.trim();
+            renderChatsList(query);
+        }
+
+        function switchChat(chatName) {
+            currentChat = chatName;
+            document.getElementById('current-chat-title').innerText = chatName;
+            document.getElementById('current-chat-status').innerText = usersData[chatName] ? usersData[chatName].status : 'مجموعة عامة';
+            renderMessages();
+            renderChatsList();
+        }
+
+        function createGroup() {
+            const gName = prompt("أدخل اسم المجموعة الجديدة:");
+            if(gName) socket.emit('create_group', gName);
+        }
+
+        function sendMessage() {
+            const text = document.getElementById('message-input').value.trim();
+            if(!text) return;
+            const msgData = { chat: currentChat, username: myUsername, type: 'text', text: text, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+            socket.emit('send_message', msgData);
+            document.getElementById('message-input').value = '';
+        }
+
+        function sendAttachment(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = () => {
+                const msgData = { 
+                    chat: currentChat, 
+                    username: myUsername, 
+                    type: type === 'image' ? 'image' : 'file', 
+                    content: reader.result, 
+                    fileName: file.name,
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
                 };
-                socket.emit('send_message', messageData);
-                input.value = '';
+                socket.emit('send_message', msgData);
+            };
+        }
+
+        async function toggleVoiceRecording() {
+            const micBtn = document.getElementById('mic-btn');
+            const timerEl = document.getElementById('recording-timer');
+            
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            const msgData = { chat: currentChat, username: myUsername, type: 'audio', content: reader.result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+                            socket.emit('send_message', msgData);
+                        };
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micBtn.classList.add('text-red-600', 'animate-pulse');
+                    timerEl.classList.remove('hidden');
+                    
+                    recordSeconds = 0;
+                    recordTimerInterval = setInterval(() => {
+                        recordSeconds++;
+                        let mins = Math.floor(recordSeconds / 60).toString().padStart(2, '0');
+                        let secs = (recordSeconds % 60).toString().padStart(2, '0');
+                        timerEl.innerText = `${mins}:${secs}`;
+                    }, 1000);
+
+                } catch(e) {
+                    alert("تعذر الوصول إلى المايكروفون!");
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.classList.remove('text-red-600', 'animate-pulse');
+                timerEl.classList.add('hidden');
+                clearInterval(recordTimerInterval);
+            }
+        }
+
+        function handleKeyPress(e) { if(e.key === 'Enter') sendMessage(); }
+
+        function notifyTyping() {
+            socket.emit('typing', { chat: currentChat, username: myUsername });
+        }
+
+        socket.on('display_typing', (data) => {
+            if(data.chat === currentChat && data.username !== myUsername) {
+                const indicator = document.getElementById('typing-indicator');
+                indicator.innerText = `${data.username} يكتب الآن...`;
+                indicator.classList.remove('hidden');
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => { indicator.classList.add('hidden'); }, 2000);
             }
         });
 
-        // استقبال الرسائل الجديدة لحظياً وعرضها
-        socket.on('receive_message', (data) => {
-            appendMessage(data);
+        socket.on('load_history', (msgs) => { allMessages = msgs; renderMessages(); });
+        socket.on('receive_message', (msg) => { 
+            allMessages.push(msg); 
+            renderMessages(); 
+            
+            if(msg.username !== myUsername) {
+                playSound('message');
+                if (window.Notification && Notification.permission === "granted") {
+                    let bodyText = msg.type === 'text' ? msg.text : (msg.type === 'image' ? 'أرسل صورة' : (msg.type === 'file' ? 'أرسل ملف' : 'أرسل تسجيل صوتي'));
+                    new Notification(`رسالة جديدة من ${msg.username} (${msg.chat})`, {
+                        body: bodyText,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png'
+                    });
+                }
+            }
         });
+
+        function renderMessages() {
+            const container = document.getElementById('messages-container');
+            container.innerHTML = '';
+            allMessages.filter(m => m.chat === currentChat).forEach(m => {
+                const isMe = m.username === myUsername;
+                let contentHtml = '';
+                if(m.type === 'audio') {
+                    contentHtml = `<audio controls class="w-48 h-10"><source src="${m.content}" type="audio/webm"></audio>`;
+                } else if(m.type === 'image') {
+                    contentHtml = `<img src="${m.content}" class="max-w-xs rounded-lg cursor-pointer" onclick="window.open(this.src)">`;
+                } else if(m.type === 'file') {
+                    contentHtml = `<a href="${m.content}" download="${m.fileName || 'file'}" class="flex items-center space-x-2 space-x-reverse text-blue-600 underline font-semibold"><i class="fa-solid fa-file-arrow-down text-xl"></i><span>${m.fileName || 'تحميل الملف'}</span></a>`;
+                } else {
+                    contentHtml = `<div class="text-sm text-gray-800">${m.text}</div>`;
+                }
+
+                container.innerHTML += `
+                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+                        <div class="max-w-xs px-4 py-2 rounded-lg shadow ${isMe ? 'bg-[#dcf8c6]' : 'bg-white'}">
+                            ${!isMe ? `<div class="text-xs font-bold text-blue-600 mb-1">${m.username}</div>` : ''}
+                            ${contentHtml}
+                            <div class="flex items-center justify-end space-x-1 space-x-reverse mt-1">
+                                <span class="text-[10px] text-gray-500">${m.time}</span>
+                                ${isMe ? '<span class="text-[10px] text-blue-500"><i class="fa-solid fa-check-double"></i></span>' : ''}
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // --- نظام المكالمات الجماعية والفردية (WebRTC Mesh) ---
+        async function startCall(type) {
+            document.getElementById('call-modal').classList.remove('hidden');
+            document.getElementById('call-status-text').innerText = "جاري الاتصال بـ " + currentChat;
+            
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+            
+            const localVideo = document.getElementById('localVideo');
+            if(type === 'video') {
+                localVideo.classList.remove('hidden');
+                localVideo.srcObject = localStream;
+            } else {
+                localVideo.classList.add('hidden');
+            }
+
+            // إذا كانت مجموعة، نرسل طلب اتصال لكل الأعضاء أو للسيرفر
+            socket.emit('start_group_call', { chat: currentChat, type: type, from: myUsername });
+        }
+
+        socket.on('incoming_call', async (data) => {
+            incomingCallData = data;
+            playSound('ring');
+            document.getElementById('call-modal').classList.remove('hidden');
+            document.getElementById('call-status-text').innerHTML = `مكالمة واردة من <span class="font-bold text-[#00a884]">${data.from}</span>`;
+            document.getElementById('call-actions').innerHTML = `
+                <div class="flex justify-center space-x-4 space-x-reverse">
+                    <button onclick="acceptCall()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700">قبول</button>
+                    <button onclick="rejectCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">رفض</button>
+                </div>
+            `;
+        });
+
+        async function acceptCall() {
+            const data = incomingCallData;
+            if(!data) return;
+            
+            document.getElementById('call-status-text').innerText = "المكالمة جارية مع " + data.from;
+            document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
+
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: data.type === 'video' });
+            if(data.type === 'video') {
+                const localVideo = document.getElementById('localVideo');
+                localVideo.classList.remove('hidden');
+                localVideo.srcObject = localStream;
+            }
+
+            createPeerConnection(data.from, true, data.offer);
+        }
+
+        function createPeerConnection(targetUser, isReceiver, offer = null) {
+            const pc = new RTCPeerConnection(rtcConfig);
+            peers[targetUser] = pc;
+
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.ontrack = event => {
+                let remoteVideo = document.getElementById(`remoteVideo-${targetUser}`);
+                if (!remoteVideo) {
+                    remoteVideo = document.createElement('video');
+                    remoteVideo.id = `remoteVideo-${targetUser}`;
+                    remoteVideo.autoplay = true;
+                    remoteVideo.className = "w-48 h-36 bg-black rounded-lg object-cover";
+                    document.getElementById('video-grid').appendChild(remoteVideo);
+                }
+                remoteVideo.srcObject = event.streams[0];
+            };
+
+            pc.onicecandidate = event => {
+                if(event.candidate) {
+                    socket.emit('ice_candidate', { to: targetUser, candidate: event.candidate });
+                }
+            };
+
+            if (isReceiver) {
+                pc.setRemoteDescription(new RTCSessionDescription(offer)).then(async () => {
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('make_answer', { to: targetUser, answer: answer, from: myUsername });
+                });
+            } else {
+                pc.createOffer().then(offer => {
+                    pc.setLocalDescription(offer);
+                    socket.emit('call_user', { to: targetUser, from: myUsername, offer: offer, type: 'video' });
+                });
+            }
+        }
+
+        socket.on('call_answered', async (data) => {
+            if (peers[data.from]) {
+                await peers[data.from].setRemoteDescription(new RTCSessionDescription(data.answer));
+                document.getElementById('call-status-text').innerText = "المكالمة جارية...";
+            }
+        });
+
+        socket.on('ice_candidate', async (data) => {
+            if (peers[data.from] && data.candidate) {
+                try {
+                    await peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {}
+            }
+        });
+
+        function rejectCall() {
+            endCall();
+        }
+
+        function endCall() {
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
+            for(let user in peers) {
+                peers[user].close();
+            }
+            peers = {};
+            document.getElementById('call-modal').classList.add('hidden');
+            document.getElementById('localVideo').classList.add('hidden');
+            // تنظيف شبكة الفيديو
+            const grid = document.getElementById('video-grid');
+            grid.innerHTML = '<video id="localVideo" autoplay muted class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>';
+            incomingCallData = null;
+        }
     </script>
 </body>
 </html>
