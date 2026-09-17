@@ -1,60 +1,58 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const path = require('path');
 
-// تقديم الملفات الثابتة (مثل index.html وباقي الملفات في نفس المجلد)
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, '.')));
 
-// تخزين بيانات المستخدمين والمجموعات والرسائل في الذاكرة
-const users = {};       // socket.id -> username
-const usersData = {};   // username -> { status: 'متصل' }
-const groupsList = ["الدردشة العامة"]; // المجموعة الافتراضية
-const allMessages = []; // حفظ سجل الرسائل
+const users = {}; // حفظ المستخدمين مع Socket ID الخاص بهم
+const groups = ["الدردشة العامة"];
+const messages = []; // حفظ سجل الرسائل
 
 io.on('connection', (socket) => {
-    console.log('مستخدم متصل:', socket.id);
-
-    // التحقق من تسجيل المستخدم وتسجيله بالنظام
+    
+    // التحقق من اسم المستخدم وتسجيله
     socket.on('verify_user', (username) => {
-        users[socket.id] = username;
-        usersData[username] = { status: 'متصل' };
+        if (!username) return;
+        users[username] = { id: socket.id, status: 'متصل' };
+        socket.username = username;
         
         socket.emit('auth_success', username);
-        io.emit('update_users', usersData);
-        socket.emit('update_groups', groupsList);
-        socket.emit('load_history', allMessages);
+        socket.emit('load_history', messages);
+        
+        io.emit('update_users', users);
+        io.emit('update_groups', groups);
     });
 
     // إنشاء مجموعة جديدة
     socket.on('create_group', (groupName) => {
-        if (groupName && !groupsList.includes(groupName)) {
-            groupsList.push(groupName);
-            io.emit('update_groups', groupsList);
+        if (groupName && !groups.includes(groupName)) {
+            groups.push(groupName);
+            io.emit('update_groups', groups);
         }
     });
 
-    // استقبال وإرسال الرسائل (نصوص، صور، ملفات، صوتيات)
+    // استقبال وإرسال الرسائل والصور والصوتيات
     socket.on('send_message', (msgData) => {
-        allMessages.push(msgData);
+        messages.push(msgData);
         io.emit('receive_message', msgData);
     });
 
-    // مؤشر الكتابة (يكتب الآن...)
+    // مؤشر الكتابة
     socket.on('typing', (data) => {
         socket.broadcast.emit('display_typing', data);
     });
 
-    // --- أحداث مكالمات WebRTC (الإشارات) ---
+    // ==========================================
+    // إدارة إشارات مكالمات WebRTC (الصوت والفيديو)
+    // ==========================================
     
-    // بدء مكالمة (فردية أو جماعية)
+    // طلب مكالمة جديد موجه لمستخدم معين
     socket.on('call_user', (data) => {
-        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('incoming_call', {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.id).emit('incoming_call', {
                 from: data.from,
                 offer: data.offer,
                 type: data.type
@@ -62,50 +60,47 @@ io.on('connection', (socket) => {
         }
     });
 
-    // الرد على المكالمة (Answer)
+    // قبول المكالمة وإرسال الرد (Answer)
     socket.on('make_answer', (data) => {
-        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('call_answered', {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.id).emit('call_answered', {
                 answer: data.answer,
                 from: data.from
             });
         }
     });
 
-    // تبادل الـ ICE Candidates
+    // تبادل بيانات المسارات (ICE Candidates)
     socket.on('ice_candidate', (data) => {
-        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('ice_candidate', {
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.id).emit('ice_candidate', {
                 candidate: data.candidate,
-                from: users[socket.id]
+                from: data.from
             });
         }
     });
 
-    // تفعيل خادم TURN
+    // إدارة تنبيه تفعيل خادم الـ TURN وتعميمه للطرفين
     socket.on('turn_connection_active', (data) => {
-        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
-        if (targetSocketId) {
-            io.to(targetSocketId).emit('show_turn_alert');
+        const targetUser = users[data.to];
+        if (targetUser) {
+            io.to(targetUser.id).emit('show_turn_alert');
         }
+        socket.emit('show_turn_alert');
     });
 
-    // عند قطع اتصال المستخدم
+    // عند انقطاع الاتصال أو إغلاق الصفحة
     socket.on('disconnect', () => {
-        const username = users[socket.id];
-        if (username) {
-            delete users[socket.id];
-            delete usersData[username];
-            io.emit('update_users', usersData);
+        if (socket.username && users[socket.username]) {
+            delete users[socket.username];
+            io.emit('update_users', users);
         }
-        console.log('مستخدم انقطع اتصاله:', socket.id);
     });
 });
 
-// تشغيل السيرفر على البورت المطلوب من المنصة أو 3000 محلياً
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, () => {
+    console.log('Server is running on port ' + PORT);
 });
