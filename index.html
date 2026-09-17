@@ -1,100 +1,111 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>محادثة خاصة وآمنة</title>
-    <!-- مكتبة Socket.io للاتصال الفوري -->
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Tahoma, sans-serif; }
-        body { background-color: #efeae2; display: flex; flex-direction: column; height: 100vh; }
-        header { background-color: #00a884; color: white; padding: 15px; text-align: center; font-size: 18px; font-weight: bold; }
-        #chat-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .message { max-width: 70%; padding: 10px 15px; border-radius: 8px; word-wrap: break-word; font-size: 14px; position: relative; }
-        .message.incoming { background-color: #ffffff; align-self: flex-start; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .message.outgoing { background-color: #d9fdd3; align-self: flex-end; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .sender-name { font-size: 11px; color: #005c4b; font-weight: bold; margin-bottom: 3px; display: block; }
-        .message-text { color: #111; }
-        #form { display: flex; padding: 10px; background-color: #f0f2f5; }
-        #input { flex: 1; padding: 12px; border: none; border-radius: 8px; outline: none; font-size: 14px; background: #fff; }
-        #send-btn { background-color: #00a884; color: white; border: none; padding: 0 20px; margin-right: 8px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        #send-btn:hover { background-color: #008f72; }
-    </style>
-</head>
-<body>
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
-    <header>محادثة خاصة عائلية</header>
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-    <div id="chat-container"></div>
+// تقديم الملفات الثابتة (مثل index.html وباقي الملفات في نفس المجلد)
+app.use(express.static(__dirname));
 
-    <form id="form">
-        <input id="input" autocomplete="off" placeholder="اكتب رسالة..." required />
-        <button id="send-btn">إرسال</button>
-    </form>
+// تخزين بيانات المستخدمين والمجموعات والرسائل في الذاكرة
+const users = {};       // socket.id -> username
+const usersData = {};   // username -> { status: 'متصل' }
+const groupsList = ["الدردشة العامة"]; // المجموعة الافتراضية
+const allMessages = []; // حفظ سجل الرسائل
 
-    <script>
-        const socket = io();
+io.on('connection', (socket) => {
+    console.log('مستخدم متصل:', socket.id);
 
-        // 1. إدارة اسم المستخدم وحفظه تلقائياً في المتصفح
-        let username = localStorage.getItem('chat_username');
-        if (!username || username.trim() === "") {
-            username = prompt("أدخل اسمك لتبدأ المحادثة:");
-            if (!username) username = "مستخدم مجهول";
-            localStorage.setItem('chat_username', username.trim());
+    // التحقق من تسجيل المستخدم وتسجيله بالنظام
+    socket.on('verify_user', (username) => {
+        users[socket.id] = username;
+        usersData[username] = { status: 'متصل' };
+        
+        socket.emit('auth_success', username);
+        io.emit('update_users', usersData);
+        socket.emit('update_groups', groupsList);
+        socket.emit('load_history', allMessages);
+    });
+
+    // إنشاء مجموعة جديدة
+    socket.on('create_group', (groupName) => {
+        if (groupName && !groupsList.includes(groupName)) {
+            groupsList.push(groupName);
+            io.emit('update_groups', groupsList);
         }
+    });
 
-        const form = document.getElementById('form');
-        const input = document.getElementById('input');
-        const chatContainer = document.getElementById('chat-container');
+    // استقبال وإرسال الرسائل (نصوص، صور، ملفات، صوتيات)
+    socket.on('send_message', (msgData) => {
+        allMessages.push(msgData);
+        io.emit('receive_message', msgData);
+    });
 
-        // دالة لإضافة الرسالة على الشاشة
-        function appendMessage(data) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
+    // مؤشر الكتابة (يكتب الآن...)
+    socket.on('typing', (data) => {
+        socket.broadcast.emit('display_typing', data);
+    });
 
-            // تحديد ما إذا كانت الرسالة مرسلة أو مستلمة
-            if (data.username === username) {
-                messageDiv.classList.add('outgoing');
-            } else {
-                messageDiv.classList.add('incoming');
-            }
-
-            messageDiv.innerHTML = `
-                <span class="sender-name">${data.username}</span>
-                <span class="message-text">${data.text}</span>
-            `;
-
-            chatContainer.appendChild(messageDiv);
-            // النزول تلقائياً لأسفل المحادثة
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        // 2. تحميل المحادثات القديمة فور فتح الموقع
-        socket.on('load_history', (history) => {
-            chatContainer.innerHTML = ""; // تفريغ الحاوية أولاً
-            history.forEach(msg => {
-                appendMessage(msg);
+    // --- أحداث مكالمات WebRTC (الإشارات) ---
+    
+    // بدء مكالمة (فردية أو جماعية)
+    socket.on('call_user', (data) => {
+        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('incoming_call', {
+                from: data.from,
+                offer: data.offer,
+                type: data.type
             });
-        });
+        }
+    });
 
-        // إرسال الرسالة عند الضغط على زر إرسال
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (input.value) {
-                const messageData = {
-                    username: username,
-                    text: input.value
-                };
-                socket.emit('send_message', messageData);
-                input.value = '';
-            }
-        });
+    // الرد على المكالمة (Answer)
+    socket.on('make_answer', (data) => {
+        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('call_answered', {
+                answer: data.answer,
+                from: data.from
+            });
+        }
+    });
 
-        // استقبال الرسائل الجديدة لحظياً وعرضها
-        socket.on('receive_message', (data) => {
-            appendMessage(data);
-        });
-    </script>
-</body>
-</html>
+    // تبادل الـ ICE Candidates
+    socket.on('ice_candidate', (data) => {
+        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('ice_candidate', {
+                candidate: data.candidate,
+                from: users[socket.id]
+            });
+        }
+    });
+
+    // تفعيل خادم TURN
+    socket.on('turn_connection_active', (data) => {
+        const targetSocketId = Object.keys(users).find(id => users[id] === data.to);
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('show_turn_alert');
+        }
+    });
+
+    // عند قطع اتصال المستخدم
+    socket.on('disconnect', () => {
+        const username = users[socket.id];
+        if (username) {
+            delete users[socket.id];
+            delete usersData[username];
+            io.emit('update_users', usersData);
+        }
+        console.log('مستخدم انقطع اتصاله:', socket.id);
+    });
+});
+
+// تشغيل السيرفر على البورت المطلوب من المنصة أو 3000 محلياً
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
