@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>دردشة ويب</title>
+    <title>الدردشة</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
@@ -29,7 +29,6 @@
         body {
             font-family: Tahoma, Arial, sans-serif;
             background: #dadbd4;
-            transition: background .2s;
         }
 
         .whatsapp-bg {
@@ -168,6 +167,7 @@
         }
 
         @media (max-width: 768px) {
+
             #app-screen {
                 max-height: 100vh !important;
                 height: 100vh !important;
@@ -184,10 +184,6 @@
 
             .mobile-hidden {
                 display: none !important;
-            }
-
-            .mobile-show {
-                display: flex !important;
             }
         }
     </style>
@@ -240,6 +236,7 @@
             id="login-error"
             class="text-red-500 text-sm mt-3 hidden"
         ></p>
+
     </div>
 </div>
 
@@ -253,16 +250,12 @@
     class="hidden w-full h-full max-w-[1500px] mx-auto bg-[#f0f2f5] shadow-2xl overflow-hidden md:h-[95vh] md:my-[2.5vh] md:rounded-xl"
 >
 
-    <!-- ================================================= -->
     <!-- SIDEBAR -->
-    <!-- ================================================= -->
 
     <aside
         id="sidebar"
         class="w-[380px] bg-white flex flex-col border-l border-gray-200 dark-side"
     >
-
-        <!-- PROFILE HEADER -->
 
         <div
             class="dark-header bg-[#f0f2f5] p-3 flex items-center justify-between border-b"
@@ -278,6 +271,7 @@
                 </div>
 
                 <div>
+
                     <div
                         id="my-username-display"
                         class="font-bold dark-text"
@@ -291,6 +285,7 @@
                     >
                         0 متصل
                     </div>
+
                 </div>
 
             </div>
@@ -317,6 +312,7 @@
                 </button>
 
             </div>
+
         </div>
 
 
@@ -354,16 +350,14 @@
     </aside>
 
 
-    <!-- ================================================= -->
     <!-- CHAT -->
-    <!-- ================================================= -->
 
     <main
         id="chat-panel"
         class="hidden md:flex flex-1 flex-col whatsapp-bg"
     >
 
-        <!-- CHAT HEADER -->
+        <!-- HEADER -->
 
         <header
             class="dark-header bg-[#f0f2f5] p-3 border-b flex items-center justify-between"
@@ -408,7 +402,7 @@
 
                 <button
                     onclick="searchInsideChat()"
-                    title="بحث داخل المحادثة"
+                    title="بحث"
                     class="text-gray-600 dark-muted"
                 >
                     <i class="fa-solid fa-magnifying-glass text-lg"></i>
@@ -487,14 +481,13 @@
             class="dark-header bg-[#f0f2f5] p-2 md:p-3"
         >
 
-            <!-- EDIT BAR -->
-
             <div
                 id="edit-bar"
                 class="hidden bg-white rounded-lg p-2 mb-2 flex items-center justify-between"
             >
 
                 <div>
+
                     <div class="text-xs text-[#00a884] font-bold">
                         تعديل الرسالة
                     </div>
@@ -503,6 +496,7 @@
                         id="edit-preview"
                         class="text-sm text-gray-500 truncate max-w-[300px]"
                     ></div>
+
                 </div>
 
                 <button
@@ -520,9 +514,10 @@
                 <!-- FILE -->
 
                 <label
-                    title="إرسال ملف"
+                    title="ملف"
                     class="cursor-pointer text-gray-600 dark-muted hover:text-[#00a884] text-xl px-1"
                 >
+
                     <i class="fa-solid fa-paperclip"></i>
 
                     <input
@@ -530,15 +525,17 @@
                         class="hidden"
                         onchange="sendFile(event)"
                     >
+
                 </label>
 
 
                 <!-- IMAGE -->
 
                 <label
-                    title="إرسال صورة"
+                    title="صورة"
                     class="cursor-pointer text-gray-600 dark-muted hover:text-[#00a884] text-xl px-1"
                 >
+
                     <i class="fa-solid fa-image"></i>
 
                     <input
@@ -547,15 +544,17 @@
                         class="hidden"
                         onchange="sendImage(event)"
                     >
+
                 </label>
 
 
                 <!-- VIDEO -->
 
                 <label
-                    title="إرسال فيديو"
+                    title="فيديو"
                     class="cursor-pointer text-gray-600 dark-muted hover:text-[#00a884] text-xl px-1"
                 >
+
                     <i class="fa-solid fa-video"></i>
 
                     <input
@@ -564,10 +563,11 @@
                         class="hidden"
                         onchange="sendFile(event)"
                     >
+
                 </label>
 
 
-                <!-- MIC -->
+                <!-- AUDIO -->
 
                 <button
                     id="mic-btn"
@@ -578,8 +578,6 @@
                     <i class="fa-solid fa-microphone"></i>
                 </button>
 
-
-                <!-- INPUT -->
 
                 <input
                     id="message-input"
@@ -593,8 +591,6 @@
                 >
 
 
-                <!-- SEND -->
-
                 <button
                     onclick="sendMessage()"
                     class="w-11 h-11 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72]"
@@ -603,6 +599,7 @@
                 </button>
 
             </div>
+
         </div>
 
     </main>
@@ -692,7 +689,7 @@
 
 
 <!-- ===================================================== -->
-<!-- CONTEXT MENU -->
+<!-- MESSAGE MENU -->
 <!-- ===================================================== -->
 
 <div
@@ -728,20 +725,15 @@
 </div>
 
 
-<!-- ===================================================== -->
-<!-- SCRIPT -->
-<!-- ===================================================== -->
-
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
 
-const socket = io();
-
-
 // =====================================================
 // VARIABLES
 // =====================================================
+
+const socket = io();
 
 let myUsername = "";
 
@@ -753,7 +745,7 @@ let usersData = {};
 
 let groupsList = [];
 
-let typingTimeout;
+let typingTimeout = null;
 
 let unreadCounts = {};
 
@@ -761,9 +753,8 @@ let editingMessageId = null;
 
 let contextMessageId = null;
 
-let darkMode =
-    localStorage.getItem("darkMode") === "true";
 
+// CALL
 
 let peerConnection = null;
 
@@ -783,6 +774,8 @@ let micMuted = false;
 
 let cameraDisabled = false;
 
+
+// VOICE
 
 let mediaRecorder = null;
 
@@ -826,7 +819,9 @@ const rtcConfig = {
             username: "5a7f0ee6288a27c37fc25fa6",
             credential: "xHtDb/xICUr5qHKb"
         }
+
     ]
+
 };
 
 
@@ -834,26 +829,51 @@ const rtcConfig = {
 // START
 // =====================================================
 
-document.addEventListener("DOMContentLoaded", () => {
-
-    if (darkMode) {
-        document.body.classList.add("dark");
-        updateDarkIcon();
-    }
-
-    document.addEventListener("click", (e) => {
-
-        const menu =
-            document.getElementById("message-context-menu");
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
         if (
-            !menu.contains(e.target) &&
-            !e.target.closest(".message-more")
+            localStorage.getItem(
+                "darkMode"
+            ) === "true"
         ) {
-            menu.classList.add("hidden");
+
+            document.body.classList.add(
+                "dark"
+            );
+
+            updateDarkIcon();
         }
-    });
-});
+
+
+        document.addEventListener(
+            "click",
+            event => {
+
+                const menu =
+                    document.getElementById(
+                        "message-context-menu"
+                    );
+
+                if (
+                    !menu.contains(
+                        event.target
+                    ) &&
+                    !event.target.closest(
+                        ".message-more"
+                    )
+                ) {
+
+                    menu.classList.add(
+                        "hidden"
+                    );
+                }
+            }
+        );
+
+    }
+);
 
 
 // =====================================================
@@ -862,27 +882,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function toggleDarkMode() {
 
-    darkMode = !darkMode;
-
-    document.body.classList.toggle("dark", darkMode);
+    const enabled =
+        document.body.classList.toggle(
+            "dark"
+        );
 
     localStorage.setItem(
         "darkMode",
-        darkMode
+        enabled
     );
 
     updateDarkIcon();
 }
 
+
 function updateDarkIcon() {
 
     const icon =
-        document.getElementById("dark-icon");
+        document.getElementById(
+            "dark-icon"
+        );
 
     if (!icon) return;
 
     icon.className =
-        darkMode
+        document.body.classList.contains(
+            "dark"
+        )
             ? "fa-solid fa-sun text-xl"
             : "fa-solid fa-moon text-xl";
 }
@@ -895,7 +921,9 @@ function updateDarkIcon() {
 function login() {
 
     const input =
-        document.getElementById("username-input");
+        document.getElementById(
+            "username-input"
+        );
 
     const username =
         input.value.trim();
@@ -912,18 +940,23 @@ function login() {
     if (username.length < 2) {
 
         showLoginError(
-            "اسم المستخدم قصير جدًا"
+            "اسم المستخدم قصير جداً"
         );
 
         return;
     }
 
+
     if (
-        window.Notification &&
-        Notification.permission !== "granted"
+        "Notification" in window &&
+        Notification.permission ===
+            "default"
     ) {
-        Notification.requestPermission().catch(() => {});
+
+        Notification.requestPermission()
+            .catch(() => {});
     }
+
 
     socket.emit(
         "verify_user",
@@ -931,14 +964,22 @@ function login() {
     );
 }
 
-function showLoginError(text) {
+
+function showLoginError(
+    text
+) {
 
     const error =
-        document.getElementById("login-error");
+        document.getElementById(
+            "login-error"
+        );
 
-    error.innerText = text;
+    error.innerText =
+        text;
 
-    error.classList.remove("hidden");
+    error.classList.remove(
+        "hidden"
+    );
 }
 
 
@@ -946,89 +987,115 @@ function showLoginError(text) {
 // AUTH
 // =====================================================
 
-socket.on("auth_success", (username) => {
+socket.on(
+    "auth_success",
+    username => {
 
-    myUsername = username;
+        myUsername =
+            username;
 
-    document
-        .getElementById("login-screen")
-        .classList.add("hidden");
+        document
+            .getElementById(
+                "login-screen"
+            )
+            .classList.add(
+                "hidden"
+            );
 
-    document
-        .getElementById("app-screen")
-        .classList.remove("hidden");
+        document
+            .getElementById(
+                "app-screen"
+            )
+            .classList.remove(
+                "hidden"
+            );
 
-    document
-        .getElementById("my-username-display")
-        .innerText = username;
+        document
+            .getElementById(
+                "my-username-display"
+            )
+            .innerText =
+            username;
 
-    updateMyAvatar();
+        updateMyAvatar();
 
-    switchChat("الدردشة العامة");
+        switchChat(
+            "الدردشة العامة"
+        );
 
-    requestNotificationPermission();
-});
-
-
-socket.on("auth_error", (message) => {
-
-    showLoginError(message);
-});
-
-
-async function requestNotificationPermission() {
-
-    if (
-        "Notification" in window &&
-        Notification.permission === "default"
-    ) {
-        try {
-            await Notification.requestPermission();
-        } catch(e) {}
     }
-}
+);
+
+
+socket.on(
+    "auth_error",
+    message => {
+
+        showLoginError(
+            message
+        );
+    }
+);
 
 
 // =====================================================
-// USERS / GROUPS
+// USERS
 // =====================================================
 
-socket.on("update_users", (data) => {
+socket.on(
+    "update_users",
+    data => {
 
-    usersData = data || {};
+        usersData =
+            data || {};
 
-    renderChatsList();
+        renderChatsList();
 
-    updateOnlineCount();
+        updateOnlineCount();
 
-    updateCurrentStatus();
-});
+        updateCurrentStatus();
+    }
+);
 
 
-socket.on("update_groups", (groups) => {
+socket.on(
+    "update_groups",
+    groups => {
 
-    groupsList = groups || [];
+        groupsList =
+            groups || [];
 
-    renderChatsList();
-});
+        renderChatsList();
+    }
+);
 
 
 function updateOnlineCount() {
 
     let count = 0;
 
-    for (const username in usersData) {
+    Object.keys(
+        usersData
+    ).forEach(
+        username => {
 
-        if (
-            username !== myUsername &&
-            usersData[username].status === "متصل"
-        ) {
-            count++;
+            if (
+                username !== myUsername &&
+                usersData[username] &&
+                usersData[username].status ===
+                    "متصل"
+            ) {
+
+                count++;
+            }
         }
-    }
+    );
+
 
     document
-        .getElementById("online-count")
+        .getElementById(
+            "online-count"
+        )
         .innerText =
         count + " متصل";
 }
@@ -1038,10 +1105,14 @@ function updateOnlineCount() {
 // CHAT LIST
 // =====================================================
 
-function renderChatsList(filter = "") {
+function renderChatsList(
+    filter = ""
+) {
 
     const list =
-        document.getElementById("chats-list");
+        document.getElementById(
+            "chats-list"
+        );
 
     list.innerHTML = "";
 
@@ -1051,146 +1122,168 @@ function renderChatsList(filter = "") {
 
     // GROUPS
 
-    groupsList.forEach(group => {
+    groupsList.forEach(
+        group => {
 
-        if (
-            !group.toLowerCase().includes(query)
-        ) {
-            return;
-        }
+            if (
+                !group
+                    .toLowerCase()
+                    .includes(query)
+            ) {
+                return;
+            }
 
-        const selected =
-            currentChat === group;
 
-        list.innerHTML += `
+            const selected =
+                currentChat === group;
 
-            <div
-                onclick="switchChat(${JSON.stringify(group)})"
-                class="chat-item ${
-                    selected
-                        ? "chat-selected"
-                        : ""
-                } p-3 cursor-pointer flex items-center gap-3"
-            >
+
+            list.innerHTML += `
 
                 <div
-                    class="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0"
+                    onclick='switchChat(${JSON.stringify(group)})'
+                    class="chat-item ${
+                        selected
+                            ? "chat-selected"
+                            : ""
+                    } p-3 cursor-pointer flex items-center gap-3"
                 >
-                    <i class="fa-solid fa-users"></i>
-                </div>
 
-                <div class="min-w-0 flex-1">
+                    <div
+                        class="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0"
+                    >
+                        <i class="fa-solid fa-users"></i>
+                    </div>
 
-                    <div class="flex justify-between">
+                    <div class="min-w-0 flex-1">
 
-                        <span class="font-bold dark-text truncate">
-                            ${escapeHtml(group)}
-                        </span>
+                        <div class="flex justify-between">
 
-                        ${
-                            unreadCounts[group]
-                                ? `
-                                    <span class="unread-badge bg-[#25d366] text-white rounded-full flex items-center justify-center text-xs font-bold">
-                                        ${unreadCounts[group]}
-                                    </span>
-                                `
-                                : ""
-                        }
+                            <span class="font-bold dark-text truncate">
+                                ${escapeHtml(group)}
+                            </span>
+
+                            ${
+                                unreadCounts[group]
+                                    ? `
+                                        <span class="unread-badge bg-[#25d366] text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                            ${unreadCounts[group]}
+                                        </span>
+                                    `
+                                    : ""
+                            }
+
+                        </div>
+
+                        <div class="text-xs text-gray-500 dark-muted">
+                            مجموعة
+                        </div>
 
                     </div>
 
-                    <div class="text-xs text-gray-500 dark-muted">
-                        مجموعة
-                    </div>
-
                 </div>
-
-            </div>
-        `;
-    });
+            `;
+        }
+    );
 
 
     // USERS
 
-    for (const username in usersData) {
+    Object.keys(
+        usersData
+    ).forEach(
+        username => {
 
-        if (username === myUsername) {
-            continue;
-        }
-
-        if (
-            !username
-                .toLowerCase()
-                .includes(query)
-        ) {
-            continue;
-        }
-
-        const user =
-            usersData[username];
-
-        const selected =
-            currentChat === username;
-
-        const statusColor =
-            user.status === "متصل"
-                ? "text-green-500"
-                : "text-gray-400";
-
-        let lastSeenText =
-            user.status === "متصل"
-                ? "متصل الآن"
-                : formatLastSeen(user.lastSeen);
+            if (
+                username ===
+                myUsername
+            ) {
+                return;
+            }
 
 
-        list.innerHTML += `
+            if (
+                !username
+                    .toLowerCase()
+                    .includes(query)
+            ) {
+                return;
+            }
 
-            <div
-                onclick="switchChat(${JSON.stringify(username)})"
-                class="chat-item ${
-                    selected
-                        ? "chat-selected"
-                        : ""
-                } p-3 cursor-pointer flex items-center gap-3"
-            >
+
+            const user =
+                usersData[username];
+
+            const selected =
+                currentChat ===
+                username;
+
+
+            const statusText =
+                user.status ===
+                "متصل"
+                    ? "متصل الآن"
+                    : formatLastSeen(
+                        user.lastSeen
+                    );
+
+
+            list.innerHTML += `
 
                 <div
-                    class="w-12 h-12 rounded-full bg-gray-400 text-white flex items-center justify-center shrink-0"
+                    onclick='switchChat(${JSON.stringify(username)})'
+                    class="chat-item ${
+                        selected
+                            ? "chat-selected"
+                            : ""
+                    } p-3 cursor-pointer flex items-center gap-3"
                 >
-                    <i class="fa-solid fa-user"></i>
-                </div>
-
-                <div class="min-w-0 flex-1">
-
-                    <div class="flex justify-between">
-
-                        <span class="font-bold dark-text truncate">
-                            ${escapeHtml(username)}
-                        </span>
-
-                        ${
-                            unreadCounts[username]
-                                ? `
-                                    <span class="unread-badge bg-[#25d366] text-white rounded-full flex items-center justify-center text-xs font-bold">
-                                        ${unreadCounts[username]}
-                                    </span>
-                                `
-                                : ""
-                        }
-
-                    </div>
 
                     <div
-                        class="text-xs ${statusColor}"
+                        class="w-12 h-12 rounded-full bg-gray-400 text-white flex items-center justify-center shrink-0"
                     >
-                        ${escapeHtml(lastSeenText)}
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+
+                        <div class="flex justify-between">
+
+                            <span class="font-bold dark-text truncate">
+                                ${escapeHtml(username)}
+                            </span>
+
+                            ${
+                                unreadCounts[username]
+                                    ? `
+                                        <span class="unread-badge bg-[#25d366] text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                            ${unreadCounts[username]}
+                                        </span>
+                                    `
+                                    : ""
+                            }
+
+                        </div>
+
+                        <div
+                            class="text-xs ${
+                                user.status ===
+                                "متصل"
+                                    ? "text-green-500"
+                                    : "text-gray-400"
+                            }"
+                        >
+                            ${escapeHtml(
+                                statusText
+                            )}
+                        </div>
+
                     </div>
 
                 </div>
-
-            </div>
-        `;
-    }
+            `;
+        }
+    );
 }
 
 
@@ -1198,11 +1291,15 @@ function filterChats() {
 
     const value =
         document
-            .getElementById("search-input")
+            .getElementById(
+                "search-input"
+            )
             .value
             .trim();
 
-    renderChatsList(value);
+    renderChatsList(
+        value
+    );
 }
 
 
@@ -1210,44 +1307,69 @@ function filterChats() {
 // SWITCH CHAT
 // =====================================================
 
-function switchChat(chatName) {
+function switchChat(
+    chatName
+) {
 
-    currentChat = chatName;
+    currentChat =
+        chatName;
 
-    unreadCounts[chatName] = 0;
+    unreadCounts[
+        chatName
+    ] = 0;
+
 
     document
-        .getElementById("current-chat-title")
-        .innerText = chatName;
+        .getElementById(
+            "current-chat-title"
+        )
+        .innerText =
+        chatName;
 
-    updateCurrentStatus();
 
     updateCurrentAvatar();
+
+    updateCurrentStatus();
 
     renderMessages();
 
     renderChatsList(
         document
-            .getElementById("search-input")
+            .getElementById(
+                "search-input"
+            )
             .value
     );
 
 
-    // Mobile
-
-    if (window.innerWidth <= 768) {
-
-        document
-            .getElementById("sidebar")
-            .classList.add("hidden");
+    if (
+        window.innerWidth <=
+        768
+    ) {
 
         document
-            .getElementById("chat-panel")
-            .classList.remove("hidden");
+            .getElementById(
+                "sidebar"
+            )
+            .classList.add(
+                "hidden"
+            );
 
         document
-            .getElementById("chat-panel")
-            .classList.add("flex");
+            .getElementById(
+                "chat-panel"
+            )
+            .classList.remove(
+                "hidden"
+            );
+
+        document
+            .getElementById(
+                "chat-panel"
+            )
+            .classList.add(
+                "flex"
+            );
     }
 }
 
@@ -1255,18 +1377,34 @@ function switchChat(chatName) {
 function showSidebar() {
 
     document
-        .getElementById("chat-panel")
-        .classList.add("hidden");
+        .getElementById(
+            "chat-panel"
+        )
+        .classList.add(
+            "hidden"
+        );
 
     document
-        .getElementById("chat-panel")
-        .classList.remove("flex");
+        .getElementById(
+            "chat-panel"
+        )
+        .classList.remove(
+            "flex"
+        );
 
     document
-        .getElementById("sidebar")
-        .classList.remove("hidden");
+        .getElementById(
+            "sidebar"
+        )
+        .classList.remove(
+            "hidden"
+        );
 }
 
+
+// =====================================================
+// CURRENT CHAT
+// =====================================================
 
 function updateCurrentAvatar() {
 
@@ -1275,13 +1413,18 @@ function updateCurrentAvatar() {
             "current-avatar"
         );
 
+
     const isGroup =
-        groupsList.includes(currentChat);
+        groupsList.includes(
+            currentChat
+        );
+
 
     avatar.innerHTML =
         isGroup
             ? '<i class="fa-solid fa-users"></i>'
             : '<i class="fa-solid fa-user"></i>';
+
 
     avatar.className =
         isGroup
@@ -1293,15 +1436,17 @@ function updateCurrentAvatar() {
 function updateMyAvatar() {
 
     const avatar =
-        document.getElementById("my-avatar");
+        document.getElementById(
+            "my-avatar"
+        );
 
-    if (myUsername) {
+    if (!myUsername)
+        return;
 
-        avatar.innerText =
-            myUsername
-                .charAt(0)
-                .toUpperCase();
-    }
+    avatar.innerText =
+        myUsername
+            .charAt(0)
+            .toUpperCase();
 }
 
 
@@ -1312,8 +1457,13 @@ function updateCurrentStatus() {
             "current-chat-status"
         );
 
+
+    // المجموعة
+
     if (
-        groupsList.includes(currentChat)
+        groupsList.includes(
+            currentChat
+        )
     ) {
 
         status.innerText =
@@ -1322,17 +1472,26 @@ function updateCurrentStatus() {
         return;
     }
 
+
+    // المستخدم
+
     const user =
         usersData[currentChat];
 
+
     if (!user) {
 
-        status.innerText = "";
+        status.innerText =
+            "";
 
         return;
     }
 
-    if (user.status === "متصل") {
+
+    if (
+        user.status ===
+        "متصل"
+    ) {
 
         status.innerText =
             "متصل الآن";
@@ -1347,14 +1506,17 @@ function updateCurrentStatus() {
 }
 
 
-function formatLastSeen(timestamp) {
+function formatLastSeen(
+    timestamp
+) {
 
-    if (!timestamp) {
+    if (!timestamp)
         return "غير متصل";
-    }
 
     const date =
-        new Date(timestamp);
+        new Date(
+            timestamp
+        );
 
     return (
         "آخر ظهور " +
@@ -1382,7 +1544,8 @@ function createGroup() {
             "أدخل اسم المجموعة:"
         );
 
-    if (!name) return;
+    if (!name)
+        return;
 
     socket.emit(
         "create_group",
@@ -1405,18 +1568,23 @@ function sendMessage() {
     const text =
         input.value.trim();
 
-    if (!text) return;
+
+    if (!text)
+        return;
 
 
-    // EDIT
-
-    if (editingMessageId) {
+    if (
+        editingMessageId
+    ) {
 
         socket.emit(
             "edit_message",
             {
-                id: editingMessageId,
-                text: text
+                id:
+                    editingMessageId,
+
+                text:
+                    text
             }
         );
 
@@ -1426,30 +1594,37 @@ function sendMessage() {
     }
 
 
-    const message = {
-
-        chat: currentChat,
-
-        type: "text",
-
-        text: text,
-
-        time:
-            new Date().toLocaleTimeString(
-                "ar-IQ",
-                {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                }
-            )
-    };
-
     socket.emit(
         "send_message",
-        message
+        {
+
+            chat:
+                currentChat,
+
+            type:
+                "text",
+
+            text:
+                text,
+
+            time:
+                new Date()
+                    .toLocaleTimeString(
+                        "ar-IQ",
+                        {
+                            hour:
+                                "2-digit",
+
+                            minute:
+                                "2-digit"
+                        }
+                    )
+        }
     );
 
-    input.value = "";
+
+    input.value =
+        "";
 }
 
 
@@ -1457,12 +1632,16 @@ function sendMessage() {
 // IMAGE
 // =====================================================
 
-function sendImage(event) {
+function sendImage(
+    event
+) {
 
     const file =
         event.target.files[0];
 
-    if (!file) return;
+    if (!file)
+        return;
+
 
     if (
         file.size >
@@ -1473,51 +1652,76 @@ function sendImage(event) {
             "الصورة أكبر من 15MB"
         );
 
-        event.target.value = "";
+        event.target.value =
+            "";
 
         return;
     }
 
+
     const reader =
         new FileReader();
 
-    reader.onload = () => {
 
-        socket.emit(
-            "send_message",
-            {
-                chat: currentChat,
-                type: "image",
-                content: reader.result,
-                text: "",
-                time:
-                    new Date().toLocaleTimeString(
-                        "ar-IQ",
-                        {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                        }
-                    )
-            }
-        );
-    };
+    reader.onload =
+        () => {
 
-    reader.readAsDataURL(file);
+            socket.emit(
+                "send_message",
+                {
 
-    event.target.value = "";
+                    chat:
+                        currentChat,
+
+                    type:
+                        "image",
+
+                    content:
+                        reader.result,
+
+                    text:
+                        "",
+
+                    time:
+                        new Date()
+                            .toLocaleTimeString(
+                                "ar-IQ",
+                                {
+                                    hour:
+                                        "2-digit",
+
+                                    minute:
+                                        "2-digit"
+                                }
+                            )
+                }
+            );
+        };
+
+
+    reader.readAsDataURL(
+        file
+    );
+
+    event.target.value =
+        "";
 }
 
 
 // =====================================================
-// FILE / VIDEO
+// FILE
 // =====================================================
 
-function sendFile(event) {
+function sendFile(
+    event
+) {
 
     const file =
         event.target.files[0];
 
-    if (!file) return;
+    if (!file)
+        return;
+
 
     if (
         file.size >
@@ -1528,49 +1732,83 @@ function sendFile(event) {
             "الملف أكبر من 20MB"
         );
 
-        event.target.value = "";
+        event.target.value =
+            "";
 
         return;
     }
 
+
     const reader =
         new FileReader();
 
-    reader.onload = () => {
 
-        socket.emit(
-            "send_message",
-            {
-                chat: currentChat,
-                type: getFileType(file),
-                content: reader.result,
-                text: file.name,
-                fileName: file.name,
-                fileSize: file.size,
-                mimeType: file.type,
-                time:
-                    new Date().toLocaleTimeString(
-                        "ar-IQ",
-                        {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                        }
-                    )
-            }
-        );
-    };
+    reader.onload =
+        () => {
 
-    reader.readAsDataURL(file);
+            socket.emit(
+                "send_message",
+                {
 
-    event.target.value = "";
+                    chat:
+                        currentChat,
+
+                    type:
+                        getFileType(
+                            file
+                        ),
+
+                    content:
+                        reader.result,
+
+                    text:
+                        file.name,
+
+                    fileName:
+                        file.name,
+
+                    fileSize:
+                        file.size,
+
+                    mimeType:
+                        file.type,
+
+                    time:
+                        new Date()
+                            .toLocaleTimeString(
+                                "ar-IQ",
+                                {
+                                    hour:
+                                        "2-digit",
+
+                                    minute:
+                                        "2-digit"
+                                }
+                            )
+                }
+            );
+        };
+
+
+    reader.readAsDataURL(
+        file
+    );
+
+    event.target.value =
+        "";
 }
 
 
-function getFileType(file) {
+function getFileType(
+    file
+) {
 
     if (
-        file.type.startsWith("video/")
+        file.type.startsWith(
+            "video/"
+        )
     ) {
+
         return "video";
     }
 
@@ -1589,28 +1827,40 @@ async function toggleVoiceRecording() {
             "mic-btn"
         );
 
+
     if (!isRecording) {
 
         try {
 
             const stream =
-                await navigator.mediaDevices.getUserMedia(
-                    {
-                        audio: true
-                    }
-                );
+                await navigator
+                    .mediaDevices
+                    .getUserMedia(
+                        {
+                            audio:
+                                true
+                        }
+                    );
+
 
             mediaRecorder =
                 new MediaRecorder(
                     stream
                 );
 
-            audioChunks = [];
+
+            audioChunks =
+                [];
+
 
             mediaRecorder.ondataavailable =
                 event => {
 
-                    if (event.data.size > 0) {
+                    if (
+                        event.data.size >
+                        0
+                    ) {
+
                         audioChunks.push(
                             event.data
                         );
@@ -1625,12 +1875,15 @@ async function toggleVoiceRecording() {
                         new Blob(
                             audioChunks,
                             {
-                                type: "audio/webm"
+                                type:
+                                    "audio/webm"
                             }
                         );
 
+
                     const reader =
                         new FileReader();
+
 
                     reader.onload =
                         () => {
@@ -1638,24 +1891,37 @@ async function toggleVoiceRecording() {
                             socket.emit(
                                 "send_message",
                                 {
-                                    chat: currentChat,
-                                    type: "audio",
-                                    content: reader.result,
+
+                                    chat:
+                                        currentChat,
+
+                                    type:
+                                        "audio",
+
+                                    content:
+                                        reader.result,
+
                                     time:
-                                        new Date().toLocaleTimeString(
-                                            "ar-IQ",
-                                            {
-                                                hour: "2-digit",
-                                                minute: "2-digit"
-                                            }
-                                        )
+                                        new Date()
+                                            .toLocaleTimeString(
+                                                "ar-IQ",
+                                                {
+                                                    hour:
+                                                        "2-digit",
+
+                                                    minute:
+                                                        "2-digit"
+                                                }
+                                            )
                                 }
                             );
                         };
 
+
                     reader.readAsDataURL(
                         blob
                     );
+
 
                     stream
                         .getTracks()
@@ -1668,14 +1934,16 @@ async function toggleVoiceRecording() {
 
             mediaRecorder.start();
 
-            isRecording = true;
+            isRecording =
+                true;
+
 
             button.classList.add(
                 "text-red-500",
                 "recording"
             );
 
-        } catch (error) {
+        } catch(error) {
 
             alert(
                 "تعذر الوصول إلى المايكروفون."
@@ -1686,7 +1954,8 @@ async function toggleVoiceRecording() {
 
         mediaRecorder.stop();
 
-        isRecording = false;
+        isRecording =
+            false;
 
         button.classList.remove(
             "text-red-500",
@@ -1700,10 +1969,13 @@ async function toggleVoiceRecording() {
 // KEYBOARD
 // =====================================================
 
-function handleKeyPress(event) {
+function handleKeyPress(
+    event
+) {
 
     if (
-        event.key === "Enter" &&
+        event.key ===
+        "Enter" &&
         !event.shiftKey
     ) {
 
@@ -1723,7 +1995,8 @@ function notifyTyping() {
     socket.emit(
         "typing",
         {
-            chat: currentChat
+            chat:
+                currentChat
         }
     );
 }
@@ -1734,28 +2007,36 @@ socket.on(
     data => {
 
         if (
-            data.chat !== currentChat ||
-            data.username === myUsername
+            data.chat !==
+            currentChat ||
+            data.username ===
+            myUsername
         ) {
+
             return;
         }
+
 
         const indicator =
             document.getElementById(
                 "typing-indicator"
             );
 
+
         indicator.innerText =
             data.username +
             " يكتب الآن...";
+
 
         indicator.classList.remove(
             "hidden"
         );
 
+
         clearTimeout(
             typingTimeout
         );
+
 
         typingTimeout =
             setTimeout(
@@ -1773,7 +2054,7 @@ socket.on(
 
 
 // =====================================================
-// LOAD HISTORY
+// HISTORY
 // =====================================================
 
 socket.on(
@@ -1789,7 +2070,7 @@ socket.on(
 
 
 // =====================================================
-// RECEIVE MESSAGE
+// RECEIVE
 // =====================================================
 
 socket.on(
@@ -1800,20 +2081,27 @@ socket.on(
             message
         );
 
+
         const isCurrent =
-            message.chat === currentChat;
+            message.chat ===
+            currentChat;
+
 
         if (
             !isCurrent &&
-            message.username !== myUsername
+            message.username !==
+            myUsername
         ) {
 
             unreadCounts[
                 message.chat
             ] =
-                (unreadCounts[
-                    message.chat
-                ] || 0) + 1;
+                (
+                    unreadCounts[
+                        message.chat
+                    ] || 0
+                ) + 1;
+
 
             renderChatsList();
 
@@ -1824,8 +2112,8 @@ socket.on(
             playSound(
                 "message"
             );
-
         }
+
 
         renderMessages();
     }
@@ -1833,7 +2121,7 @@ socket.on(
 
 
 // =====================================================
-// STATUS
+// MESSAGE STATUS
 // =====================================================
 
 socket.on(
@@ -1842,22 +2130,27 @@ socket.on(
 
         const message =
             allMessages.find(
-                m => m.id === data.id
+                m =>
+                    m.id ===
+                    data.id
             );
 
-        if (message) {
 
-            message.status =
-                data.status;
+        if (!message)
+            return;
 
-            renderMessages();
-        }
+
+        message.status =
+            data.status;
+
+
+        renderMessages();
     }
 );
 
 
 // =====================================================
-// EDITED
+// EDIT
 // =====================================================
 
 socket.on(
@@ -1866,10 +2159,15 @@ socket.on(
 
         const message =
             allMessages.find(
-                m => m.id === data.id
+                m =>
+                    m.id ===
+                    data.id
             );
 
-        if (!message) return;
+
+        if (!message)
+            return;
+
 
         message.text =
             data.text;
@@ -1877,13 +2175,14 @@ socket.on(
         message.edited =
             true;
 
+
         renderMessages();
     }
 );
 
 
 // =====================================================
-// DELETED
+// DELETE
 // =====================================================
 
 socket.on(
@@ -1892,17 +2191,25 @@ socket.on(
 
         const message =
             allMessages.find(
-                m => m.id === data.id
+                m =>
+                    m.id ===
+                    data.id
             );
 
-        if (!message) return;
+
+        if (!message)
+            return;
+
 
         message.deleted =
             true;
 
-        message.text = "";
+        message.text =
+            "";
 
-        message.content = "";
+        message.content =
+            "";
+
 
         renderMessages();
     }
@@ -1920,17 +2227,22 @@ function renderMessages() {
             "messages-container"
         );
 
+
     const messages =
         allMessages.filter(
-            m =>
-                m.chat === currentChat
+            message =>
+                message.chat ===
+                currentChat
         );
 
 
-    container.innerHTML = "";
+    container.innerHTML =
+        "";
 
 
-    if (!messages.length) {
+    if (
+        !messages.length
+    ) {
 
         container.innerHTML = `
 
@@ -1945,214 +2257,238 @@ function renderMessages() {
                 </div>
 
             </div>
+
         `;
 
         return;
     }
 
 
-    messages.forEach(message => {
+    messages.forEach(
+        message => {
 
-        const isMe =
-            message.username === myUsername;
-
-        const wrapper =
-            document.createElement(
-                "div"
-            );
-
-        wrapper.className =
-            `flex ${
-                isMe
-                    ? "justify-end"
-                    : "justify-start"
-            }`;
+            const isMe =
+                message.username ===
+                myUsername;
 
 
-        const bubble =
-            document.createElement(
-                "div"
-            );
-
-        bubble.className =
-            `relative max-w-[85%] md:max-w-[65%] px-3 py-2 rounded-xl shadow ${
-                isMe
-                    ? "outgoing-message bg-[#dcf8c6]"
-                    : "incoming-message bg-white"
-            }`;
-
-
-        if (!isMe) {
-
-            const sender =
+            const wrapper =
                 document.createElement(
                     "div"
                 );
 
-            sender.className =
-                "text-xs font-bold text-[#00a884] mb-1";
 
-            sender.innerText =
-                message.username;
-
-            bubble.appendChild(
-                sender
-            );
-        }
+            wrapper.className =
+                `flex ${
+                    isMe
+                        ? "justify-end"
+                        : "justify-start"
+                }`;
 
 
-        if (message.deleted) {
-
-            const deleted =
+            const bubble =
                 document.createElement(
                     "div"
                 );
 
-            deleted.className =
-                "text-sm italic text-gray-500";
 
-            deleted.innerText =
-                "تم حذف هذه الرسالة";
+            bubble.className =
+                `relative max-w-[85%] md:max-w-[65%] px-3 py-2 rounded-xl shadow ${
+                    isMe
+                        ? "outgoing-message bg-[#dcf8c6]"
+                        : "incoming-message bg-white"
+                }`;
 
-            bubble.appendChild(
-                deleted
-            );
 
-        } else {
+            if (!isMe) {
 
-            const content =
-                createMessageContent(
-                    message
+                const sender =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                sender.className =
+                    "text-xs font-bold text-[#00a884] mb-1";
+
+
+                sender.innerText =
+                    message.username;
+
+
+                bubble.appendChild(
+                    sender
+                );
+            }
+
+
+            if (
+                message.deleted
+            ) {
+
+                const deleted =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                deleted.className =
+                    "text-sm italic text-gray-500";
+
+
+                deleted.innerText =
+                    "تم حذف هذه الرسالة";
+
+
+                bubble.appendChild(
+                    deleted
                 );
 
-            bubble.appendChild(
-                content
-            );
-        }
+            } else {
+
+                bubble.appendChild(
+                    createMessageContent(
+                        message
+                    )
+                );
+            }
 
 
-        const footer =
-            document.createElement(
-                "div"
-            );
-
-        footer.className =
-            "flex items-center justify-end gap-1 mt-1";
+            const footer =
+                document.createElement(
+                    "div"
+                );
 
 
-        const time =
-            document.createElement(
-                "span"
-            );
-
-        time.className =
-            "text-[10px] text-gray-500";
-
-        time.innerText =
-            message.time || "";
-
-        footer.appendChild(
-            time
-        );
+            footer.className =
+                "flex items-center justify-end gap-1 mt-1";
 
 
-        if (message.edited) {
-
-            const edited =
+            const time =
                 document.createElement(
                     "span"
                 );
 
-            edited.className =
-                "text-[9px] text-gray-400";
 
-            edited.innerText =
-                "معدلة";
+            time.className =
+                "text-[10px] text-gray-500";
+
+
+            time.innerText =
+                message.time || "";
+
 
             footer.appendChild(
-                edited
+                time
             );
-        }
 
 
-        if (isMe) {
+            if (
+                message.edited
+            ) {
 
-            const status =
+                const edited =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                edited.className =
+                    "text-[9px] text-gray-400";
+
+
+                edited.innerText =
+                    "معدلة";
+
+
+                footer.appendChild(
+                    edited
+                );
+            }
+
+
+            if (isMe) {
+
+                const status =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                status.innerHTML =
+                    getMessageStatusIcon(
+                        message.status
+                    );
+
+
+                footer.appendChild(
+                    status
+                );
+            }
+
+
+            bubble.appendChild(
+                footer
+            );
+
+
+            const more =
                 document.createElement(
-                    "span"
+                    "button"
                 );
 
-            status.innerHTML =
-                getMessageStatusIcon(
-                    message.status
-                );
 
-            footer.appendChild(
-                status
+            more.className =
+                "message-more absolute left-1 top-1 text-gray-400 hover:text-gray-700";
+
+
+            more.innerHTML =
+                '<i class="fa-solid fa-ellipsis-vertical"></i>';
+
+
+            more.onclick =
+                event => {
+
+                    event.stopPropagation();
+
+                    openMessageMenu(
+                        event,
+                        message
+                    );
+                };
+
+
+            bubble.appendChild(
+                more
             );
+
+
+            wrapper.appendChild(
+                bubble
+            );
+
+
+            container.appendChild(
+                wrapper
+            );
+
+
+            if (
+                !isMe &&
+                message.id
+            ) {
+
+                socket.emit(
+                    "mark_read",
+                    {
+                        messageId:
+                            message.id
+                    }
+                );
+            }
+
         }
-
-
-        bubble.appendChild(
-            footer
-        );
-
-
-        // MORE BUTTON
-
-        const more =
-            document.createElement(
-                "button"
-            );
-
-        more.className =
-            "message-more absolute left-1 top-1 text-gray-400 hover:text-gray-700";
-
-        more.innerHTML =
-            '<i class="fa-solid fa-ellipsis-vertical"></i>';
-
-        more.onclick =
-            event => {
-
-                event.stopPropagation();
-
-                openMessageMenu(
-                    event,
-                    message
-                );
-            };
-
-        bubble.appendChild(
-            more
-        );
-
-
-        wrapper.appendChild(
-            bubble
-        );
-
-        container.appendChild(
-            wrapper
-        );
-
-
-        // READ
-
-        if (
-            !isMe &&
-            message.status !== "read"
-        ) {
-
-            socket.emit(
-                "mark_read",
-                {
-                    messageId:
-                        message.id
-                }
-            );
-        }
-
-    });
+    );
 
 
     container.scrollTop =
@@ -2161,7 +2497,7 @@ function renderMessages() {
 
 
 // =====================================================
-// MESSAGE CONTENT
+// CONTENT
 // =====================================================
 
 function createMessageContent(
@@ -2174,18 +2510,56 @@ function createMessageContent(
         );
 
 
-    if (message.type === "image") {
+    // TEXT
+
+    if (
+        message.type ===
+        "text"
+    ) {
+
+        const text =
+            document.createElement(
+                "div"
+            );
+
+
+        text.className =
+            "text-sm whitespace-pre-wrap break-words dark-text";
+
+
+        text.innerText =
+            message.text || "";
+
+
+        box.appendChild(
+            text
+        );
+
+
+        return box;
+    }
+
+
+    // IMAGE
+
+    if (
+        message.type ===
+        "image"
+    ) {
 
         const image =
             document.createElement(
                 "img"
             );
 
+
         image.src =
             message.content;
 
+
         image.className =
             "max-w-full md:max-w-[350px] max-h-[400px] rounded-lg cursor-pointer";
+
 
         image.onclick =
             () => {
@@ -2196,130 +2570,174 @@ function createMessageContent(
                 );
             };
 
+
         box.appendChild(
             image
         );
+
 
         return box;
     }
 
 
-    if (message.type === "audio") {
+    // AUDIO
+
+    if (
+        message.type ===
+        "audio"
+    ) {
 
         const audio =
             document.createElement(
                 "audio"
             );
 
-        audio.controls = true;
+
+        audio.controls =
+            true;
+
 
         audio.src =
             message.content;
 
+
         audio.className =
             "max-w-[280px]";
+
 
         box.appendChild(
             audio
         );
 
+
         return box;
     }
 
 
-    if (message.type === "video") {
+    // VIDEO
+
+    if (
+        message.type ===
+        "video"
+    ) {
 
         const video =
             document.createElement(
                 "video"
             );
 
-        video.controls = true;
+
+        video.controls =
+            true;
+
 
         video.src =
             message.content;
 
+
         video.className =
             "max-w-full md:max-w-[400px] rounded-lg";
+
 
         box.appendChild(
             video
         );
 
+
         return box;
     }
 
 
-    if (message.type === "file") {
+    // FILE
+
+    if (
+        message.type ===
+        "file"
+    ) {
 
         const link =
             document.createElement(
                 "a"
             );
 
+
         link.href =
             message.content;
+
 
         link.download =
             message.fileName ||
             "file";
 
+
         link.target =
             "_blank";
+
 
         link.className =
             "flex items-center gap-3 bg-black/5 rounded-lg p-3";
 
-        link.innerHTML = `
 
-            <i class="fa-solid fa-file text-2xl text-[#00a884]"></i>
+        const icon =
+            document.createElement(
+                "i"
+            );
 
-            <span class="text-sm break-all">
-                ${escapeHtml(
-                    message.fileName ||
-                    message.text ||
-                    "ملف"
-                )}
-            </span>
 
-        `;
+        icon.className =
+            "fa-solid fa-file text-2xl text-[#00a884]";
+
+
+        const name =
+            document.createElement(
+                "span"
+            );
+
+
+        name.className =
+            "text-sm break-all";
+
+
+        name.innerText =
+            message.fileName ||
+            message.text ||
+            "ملف";
+
+
+        link.appendChild(
+            icon
+        );
+
+        link.appendChild(
+            name
+        );
+
 
         box.appendChild(
             link
         );
 
+
         return box;
     }
 
-
-    const text =
-        document.createElement(
-            "div"
-        );
-
-    text.className =
-        "text-sm whitespace-pre-wrap break-words dark-text";
-
-    text.innerText =
-        message.text || "";
-
-    box.appendChild(
-        text
-    );
 
     return box;
 }
 
 
 // =====================================================
-// MESSAGE STATUS
+// STATUS ICON
 // =====================================================
 
 function getMessageStatusIcon(
     status
 ) {
 
-    if (status === "read") {
+    if (
+        status ===
+        "read"
+    ) {
 
         return `
             <span class="text-blue-500">
@@ -2328,7 +2746,11 @@ function getMessageStatusIcon(
         `;
     }
 
-    if (status === "delivered") {
+
+    if (
+        status ===
+        "delivered"
+    ) {
 
         return `
             <span class="text-gray-500">
@@ -2336,6 +2758,7 @@ function getMessageStatusIcon(
             </span>
         `;
     }
+
 
     return `
         <span class="text-gray-500">
@@ -2357,19 +2780,24 @@ function openMessageMenu(
     contextMessageId =
         message.id;
 
+
     const menu =
         document.getElementById(
             "message-context-menu"
         );
+
 
     const editButton =
         document.getElementById(
             "context-edit"
         );
 
+
     editButton.style.display =
-        message.username === myUsername &&
-        message.type === "text" &&
+        message.username ===
+            myUsername &&
+        message.type ===
+            "text" &&
         !message.deleted
             ? "block"
             : "none";
@@ -2378,14 +2806,18 @@ function openMessageMenu(
     menu.style.left =
         Math.min(
             event.clientX,
-            window.innerWidth - 180
+            window.innerWidth -
+                180
         ) + "px";
+
 
     menu.style.top =
         Math.min(
             event.clientY,
-            window.innerHeight - 160
+            window.innerHeight -
+                160
         ) + "px";
+
 
     menu.classList.remove(
         "hidden"
@@ -2396,8 +2828,9 @@ function openMessageMenu(
 function getContextMessage() {
 
     return allMessages.find(
-        m =>
-            m.id === contextMessageId
+        message =>
+            message.id ===
+            contextMessageId
     );
 }
 
@@ -2407,22 +2840,24 @@ async function contextCopy() {
     const message =
         getContextMessage();
 
-    if (!message) return;
+    if (!message)
+        return;
 
-    const text =
-        message.text || "";
 
     try {
 
-        await navigator.clipboard.writeText(
-            text
-        );
+        await navigator
+            .clipboard
+            .writeText(
+                message.text || ""
+            );
 
         showToast(
             "تم النسخ"
         );
 
     } catch(e) {}
+
 
     closeContextMenu();
 }
@@ -2433,17 +2868,25 @@ function contextEdit() {
     const message =
         getContextMessage();
 
-    if (!message) return;
+
+    if (!message)
+        return;
+
 
     if (
-        message.username !== myUsername ||
-        message.type !== "text"
+        message.username !==
+            myUsername ||
+        message.type !==
+            "text"
     ) {
+
         return;
     }
 
+
     editingMessageId =
         message.id;
+
 
     document
         .getElementById(
@@ -2452,12 +2895,14 @@ function contextEdit() {
         .value =
         message.text;
 
+
     document
         .getElementById(
             "edit-preview"
         )
         .innerText =
         message.text;
+
 
     document
         .getElementById(
@@ -2467,11 +2912,13 @@ function contextEdit() {
             "hidden"
         );
 
+
     document
         .getElementById(
             "message-input"
         )
         .focus();
+
 
     closeContextMenu();
 }
@@ -2482,11 +2929,14 @@ function cancelEdit() {
     editingMessageId =
         null;
 
+
     document
         .getElementById(
             "message-input"
         )
-        .value = "";
+        .value =
+        "";
+
 
     document
         .getElementById(
@@ -2503,15 +2953,21 @@ function contextDelete() {
     const message =
         getContextMessage();
 
-    if (!message) return;
+
+    if (!message)
+        return;
+
 
     if (
-        message.username !== myUsername
+        message.username !==
+        myUsername
     ) {
+
         closeContextMenu();
 
         return;
     }
+
 
     if (
         confirm(
@@ -2522,10 +2978,12 @@ function contextDelete() {
         socket.emit(
             "delete_message",
             {
-                id: message.id
+                id:
+                    message.id
             }
         );
     }
+
 
     closeContextMenu();
 }
@@ -2544,7 +3002,7 @@ function closeContextMenu() {
 
 
 // =====================================================
-// SEARCH INSIDE CHAT
+// SEARCH
 // =====================================================
 
 function searchInsideChat() {
@@ -2556,6 +3014,7 @@ function searchInsideChat() {
         .classList.remove(
             "hidden"
         );
+
 
     document
         .getElementById(
@@ -2575,6 +3034,7 @@ function closeChatSearch() {
             "hidden"
         );
 
+
     renderMessages();
 }
 
@@ -2590,6 +3050,7 @@ function runLocalSearch() {
             .trim()
             .toLowerCase();
 
+
     if (!query) {
 
         renderMessages();
@@ -2603,20 +3064,25 @@ function runLocalSearch() {
             "messages-container"
         );
 
-    container.innerHTML = "";
+
+    container.innerHTML =
+        "";
 
 
     allMessages
         .filter(
-            m =>
-                m.chat === currentChat &&
-                !m.deleted &&
+            message =>
+                message.chat ===
+                    currentChat &&
+                !message.deleted &&
                 (
-                    m.text ||
+                    message.text ||
                     ""
                 )
                     .toLowerCase()
-                    .includes(query)
+                    .includes(
+                        query
+                    )
         )
         .forEach(
             message => {
@@ -2626,28 +3092,53 @@ function runLocalSearch() {
                         "div"
                     );
 
+
                 result.className =
                     "bg-white rounded-lg p-3 shadow mb-2";
 
-                result.innerHTML = `
 
-                    <div class="text-xs text-gray-400">
-                        ${escapeHtml(
-                            message.username
-                        )}
-                        •
-                        ${escapeHtml(
-                            message.time || ""
-                        )}
-                    </div>
+                const sender =
+                    document.createElement(
+                        "div"
+                    );
 
-                    <div class="mt-1">
-                        ${escapeHtml(
-                            message.text || ""
-                        )}
-                    </div>
 
-                `;
+                sender.className =
+                    "text-xs text-gray-400";
+
+
+                sender.innerText =
+                    message.username +
+                    " • " +
+                    (
+                        message.time ||
+                        ""
+                    );
+
+
+                const text =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                text.className =
+                    "mt-1";
+
+
+                text.innerText =
+                    message.text ||
+                    "";
+
+
+                result.appendChild(
+                    sender
+                );
+
+                result.appendChild(
+                    text
+                );
+
 
                 container.appendChild(
                     result
@@ -2667,41 +3158,62 @@ function showNotification(
 
     if (
         !("Notification" in window)
-    ) {
+    )
         return;
-    }
+
 
     if (
         Notification.permission !==
         "granted"
-    ) {
+    )
         return;
-    }
+
 
     let body =
         "رسالة جديدة";
 
-    if (message.type === "text") {
+
+    if (
+        message.type ===
+        "text"
+    ) {
+
         body =
             message.text;
     }
 
-    if (message.type === "image") {
+    else if (
+        message.type ===
+        "image"
+    ) {
+
         body =
             "أرسل صورة";
     }
 
-    if (message.type === "audio") {
+    else if (
+        message.type ===
+        "audio"
+    ) {
+
         body =
             "أرسل رسالة صوتية";
     }
 
-    if (message.type === "video") {
+    else if (
+        message.type ===
+        "video"
+    ) {
+
         body =
             "أرسل فيديو";
     }
 
-    if (message.type === "file") {
+    else if (
+        message.type ===
+        "file"
+    ) {
+
         body =
             "أرسل ملف";
     }
@@ -2713,9 +3225,8 @@ function showNotification(
             "رسالة من " +
             message.username,
             {
-                body: body,
-                icon:
-                    "https://cdn-icons-png.flaticon.com/512/733/733585.png"
+                body:
+                    body
             }
         );
 
@@ -2727,7 +3238,9 @@ function showNotification(
 // SOUND
 // =====================================================
 
-function playSound(type) {
+function playSound(
+    type
+) {
 
     try {
 
@@ -2735,56 +3248,73 @@ function playSound(type) {
             window.AudioContext ||
             window.webkitAudioContext;
 
-        if (!AudioContext) return;
+
+        if (!AudioContext)
+            return;
+
 
         const ctx =
             new AudioContext();
 
+
         const oscillator =
             ctx.createOscillator();
+
 
         const gain =
             ctx.createGain();
 
+
         oscillator.connect(
             gain
         );
+
 
         gain.connect(
             ctx.destination
         );
 
 
-        if (type === "message") {
+        if (
+            type ===
+            "message"
+        ) {
 
             oscillator.frequency.value =
                 800;
 
             gain.gain.value =
-                .08;
+                0.08;
+
 
             oscillator.start();
 
+
             oscillator.stop(
                 ctx.currentTime +
-                .1
+                0.1
             );
         }
 
 
-        if (type === "ring") {
+        if (
+            type ===
+            "ring"
+        ) {
 
             oscillator.frequency.value =
                 440;
 
             gain.gain.value =
-                .15;
+                0.15;
+
 
             oscillator.start();
 
+
             oscillator.stop(
                 ctx.currentTime +
-                .4
+                0.4
             );
         }
 
@@ -2793,7 +3323,7 @@ function playSound(type) {
 
 
 // =====================================================
-// WEBRTC EVENTS
+// WEBRTC
 // =====================================================
 
 function setupPeerConnectionEvents(
@@ -2806,10 +3336,12 @@ function setupPeerConnectionEvents(
             remoteStream =
                 event.streams[0];
 
+
             const remoteVideo =
                 document.getElementById(
                     "remoteVideo"
                 );
+
 
             const remoteAudio =
                 document.getElementById(
@@ -2818,13 +3350,17 @@ function setupPeerConnectionEvents(
 
 
             if (
-                remoteStream.getVideoTracks()
+                remoteStream
+                    .getVideoTracks()
                     .length > 0
             ) {
 
-                remoteVideo.classList.remove(
-                    "hidden"
-                );
+                remoteVideo
+                    .classList
+                    .remove(
+                        "hidden"
+                    );
+
 
                 remoteVideo.srcObject =
                     remoteStream;
@@ -2834,9 +3370,12 @@ function setupPeerConnectionEvents(
                 remoteAudio.srcObject =
                     remoteStream;
 
+
                 remoteAudio
                     .play()
-                    .catch(() => {});
+                    .catch(
+                        () => {}
+                    );
             }
         };
 
@@ -2857,6 +3396,7 @@ function setupPeerConnectionEvents(
                     "المكالمة جارية...";
             }
 
+
             if (
                 pc.connectionState ===
                 "failed"
@@ -2874,16 +3414,34 @@ function setupPeerConnectionEvents(
 
 
 // =====================================================
-// START CALL
+// START CALL - FIXED
 // =====================================================
 
-async function startCall(type) {
+async function startCall(
+    type
+) {
 
-    if (
-        groupsList.includes(
+    /*
+        الإصلاح المهم هنا:
+
+        ما نعتمد على groupsList لمعرفة
+        إذا كانت المحادثة مجموعة.
+
+        نعتمد على usersData مباشرة.
+
+        إذا كان currentChat موجود داخل usersData
+        فهذا يعني أنه مستخدم.
+    */
+
+    const targetUser =
+        usersData[
             currentChat
-        )
-    ) {
+        ];
+
+
+    // ليس مستخدم
+
+    if (!targetUser) {
 
         alert(
             "المكالمات الفردية متاحة للمستخدمين فقط."
@@ -2893,10 +3451,11 @@ async function startCall(type) {
     }
 
 
+    // المستخدم موجود لكن غير متصل
+
     if (
-        !usersData[currentChat] ||
-        usersData[currentChat].status !==
-            "متصل"
+        targetUser.status !==
+        "متصل"
     ) {
 
         alert(
@@ -2912,6 +3471,7 @@ async function startCall(type) {
         currentCallType =
             type;
 
+
         document
             .getElementById(
                 "call-modal"
@@ -2920,6 +3480,7 @@ async function startCall(type) {
                 "hidden"
             );
 
+
         document
             .getElementById(
                 "call-modal"
@@ -2927,6 +3488,7 @@ async function startCall(type) {
             .classList.add(
                 "flex"
             );
+
 
         document
             .getElementById(
@@ -2938,10 +3500,13 @@ async function startCall(type) {
 
 
         localStream =
-            await navigator.mediaDevices
+            await navigator
+                .mediaDevices
                 .getUserMedia(
                     {
-                        audio: true,
+                        audio:
+                            true,
+
                         video:
                             type ===
                             "video"
@@ -2949,16 +3514,23 @@ async function startCall(type) {
                 );
 
 
-        if (type === "video") {
+        if (
+            type ===
+            "video"
+        ) {
 
             const localVideo =
                 document.getElementById(
                     "localVideo"
                 );
 
-            localVideo.classList.remove(
-                "hidden"
-            );
+
+            localVideo
+                .classList
+                .remove(
+                    "hidden"
+                );
+
 
             localVideo.srcObject =
                 localStream;
@@ -2974,11 +3546,13 @@ async function startCall(type) {
         localStream
             .getTracks()
             .forEach(
-                track =>
+                track => {
+
                     peerConnection.addTrack(
                         track,
                         localStream
-                    )
+                    );
+                }
             );
 
 
@@ -2991,34 +3565,36 @@ async function startCall(type) {
             event => {
 
                 if (
-                    event.candidate
+                    !event.candidate
+                )
+                    return;
+
+
+                socket.emit(
+                    "ice_candidate",
+                    {
+
+                        to:
+                            currentChat,
+
+                        candidate:
+                            event.candidate
+                    }
+                );
+
+
+                if (
+                    event.candidate.type ===
+                    "relay"
                 ) {
 
                     socket.emit(
-                        "ice_candidate",
+                        "turn_connection_active",
                         {
                             to:
-                                currentChat,
-                            candidate:
-                                event.candidate
+                                currentChat
                         }
                     );
-
-
-                    if (
-                        event.candidate
-                            .type ===
-                        "relay"
-                    ) {
-
-                        socket.emit(
-                            "turn_connection_active",
-                            {
-                                to:
-                                    currentChat
-                            }
-                        );
-                    }
                 }
             };
 
@@ -3037,12 +3613,16 @@ async function startCall(type) {
         socket.emit(
             "call_user",
             {
+
                 to:
                     currentChat,
+
                 from:
                     myUsername,
+
                 offer:
                     offer,
+
                 type:
                     type
             }
@@ -3053,13 +3633,19 @@ async function startCall(type) {
 
         renderCallControls();
 
+
     } catch(error) {
 
-        console.error(error);
+        console.error(
+            "CALL ERROR:",
+            error
+        );
+
 
         alert(
             "تعذر تشغيل المايكروفون أو الكاميرا."
         );
+
 
         endCall();
     }
@@ -3077,7 +3663,10 @@ socket.on(
         incomingCallData =
             data;
 
-        playSound("ring");
+
+        playSound(
+            "ring"
+        );
 
 
         document
@@ -3087,6 +3676,7 @@ socket.on(
             .classList.remove(
                 "hidden"
             );
+
 
         document
             .getElementById(
@@ -3101,13 +3691,16 @@ socket.on(
             .getElementById(
                 "call-status-text"
             )
-            .innerHTML =
+            .innerHTML = `
 
-            `
                 مكالمة واردة من
+
                 <strong class="text-[#25d366]">
-                    ${escapeHtml(data.from)}
+                    ${escapeHtml(
+                        data.from
+                    )}
                 </strong>
+
             `;
 
 
@@ -3137,7 +3730,7 @@ socket.on(
 
 
 // =====================================================
-// ACCEPT
+// ACCEPT CALL
 // =====================================================
 
 async function acceptCall() {
@@ -3145,7 +3738,9 @@ async function acceptCall() {
     const data =
         incomingCallData;
 
-    if (!data) return;
+
+    if (!data)
+        return;
 
 
     try {
@@ -3153,15 +3748,19 @@ async function acceptCall() {
         currentChat =
             data.from;
 
+
         currentCallType =
             data.type;
 
 
         localStream =
-            await navigator.mediaDevices
+            await navigator
+                .mediaDevices
                 .getUserMedia(
                     {
-                        audio: true,
+                        audio:
+                            true,
+
                         video:
                             data.type ===
                             "video"
@@ -3179,9 +3778,13 @@ async function acceptCall() {
                     "localVideo"
                 );
 
-            localVideo.classList.remove(
-                "hidden"
-            );
+
+            localVideo
+                .classList
+                .remove(
+                    "hidden"
+                );
+
 
             localVideo.srcObject =
                 localStream;
@@ -3197,11 +3800,13 @@ async function acceptCall() {
         localStream
             .getTracks()
             .forEach(
-                track =>
+                track => {
+
                     peerConnection.addTrack(
                         track,
                         localStream
-                    )
+                    );
+                }
             );
 
 
@@ -3214,35 +3819,22 @@ async function acceptCall() {
             event => {
 
                 if (
-                    event.candidate
-                ) {
-
-                    socket.emit(
-                        "ice_candidate",
-                        {
-                            to:
-                                data.from,
-                            candidate:
-                                event.candidate
-                        }
-                    );
+                    !event.candidate
+                )
+                    return;
 
 
-                    if (
-                        event.candidate
-                            .type ===
-                        "relay"
-                    ) {
+                socket.emit(
+                    "ice_candidate",
+                    {
 
-                        socket.emit(
-                            "turn_connection_active",
-                            {
-                                to:
-                                    data.from
-                            }
-                        );
+                        to:
+                            data.from,
+
+                        candidate:
+                            event.candidate
                     }
-                }
+                );
             };
 
 
@@ -3268,10 +3860,13 @@ async function acceptCall() {
         socket.emit(
             "make_answer",
             {
+
                 to:
                     data.from,
+
                 answer:
                     answer,
+
                 from:
                     myUsername
             }
@@ -3290,16 +3885,23 @@ async function acceptCall() {
 
         renderCallControls();
 
+
         incomingCallData =
             null;
 
+
     } catch(error) {
 
-        console.error(error);
+        console.error(
+            "ACCEPT CALL ERROR:",
+            error
+        );
+
 
         alert(
             "تعذر قبول المكالمة."
         );
+
 
         endCall();
     }
@@ -3316,8 +3918,11 @@ socket.on(
 
         try {
 
-            if (!peerConnection)
+            if (
+                !peerConnection
+            )
                 return;
+
 
             await peerConnection
                 .setRemoteDescription(
@@ -3326,6 +3931,7 @@ socket.on(
                     )
                 );
 
+
             document
                 .getElementById(
                     "call-status-text"
@@ -3333,10 +3939,11 @@ socket.on(
                 .innerText =
                 "المكالمة جارية...";
 
+
         } catch(error) {
 
             console.error(
-                "خطأ في المكالمة:",
+                "ANSWER ERROR:",
                 error
             );
         }
@@ -3356,8 +3963,10 @@ socket.on(
             !peerConnection ||
             !data.candidate
         ) {
+
             return;
         }
+
 
         try {
 
@@ -3368,7 +3977,13 @@ socket.on(
                     )
                 );
 
-        } catch(e) {}
+        } catch(error) {
+
+            console.error(
+                "ICE ERROR:",
+                error
+            );
+        }
     }
 );
 
@@ -3386,15 +4001,18 @@ socket.on(
                 "call-status-text"
             );
 
-        if (!status) return;
+
+        if (!status)
+            return;
+
 
         if (
             status.innerHTML.includes(
                 "TURN"
             )
-        ) {
+        )
             return;
-        }
+
 
         status.innerHTML += `
 
@@ -3427,21 +4045,20 @@ function renderCallControls() {
             onclick="toggleCallMic()"
             id="call-mic-button"
             class="w-12 h-12 rounded-full bg-[#374045] hover:bg-[#4b595f]"
-            title="كتم المايك"
         >
             <i class="fa-solid fa-microphone"></i>
         </button>
 
 
         ${
-            currentCallType === "video"
+            currentCallType ===
+            "video"
                 ? `
 
                     <button
                         onclick="toggleCallCamera()"
                         id="call-camera-button"
                         class="w-12 h-12 rounded-full bg-[#374045] hover:bg-[#4b595f]"
-                        title="إيقاف الكاميرا"
                     >
                         <i class="fa-solid fa-video"></i>
                     </button>
@@ -3454,7 +4071,6 @@ function renderCallControls() {
         <button
             onclick="endCall()"
             class="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700"
-            title="إنهاء المكالمة"
         >
             <i class="fa-solid fa-phone-slash"></i>
         </button>
@@ -3468,17 +4084,23 @@ function toggleCallMic() {
     if (!localStream)
         return;
 
-    const audioTracks =
-        localStream.getAudioTracks();
 
-    if (!audioTracks.length)
+    const tracks =
+        localStream
+            .getAudioTracks();
+
+
+    if (!tracks.length)
         return;
+
 
     micMuted =
         !micMuted;
 
-    audioTracks.forEach(
+
+    tracks.forEach(
         track => {
+
             track.enabled =
                 !micMuted;
         }
@@ -3489,6 +4111,7 @@ function toggleCallMic() {
         document.getElementById(
             "call-mic-button"
         );
+
 
     if (button) {
 
@@ -3505,17 +4128,23 @@ function toggleCallCamera() {
     if (!localStream)
         return;
 
-    const videoTracks =
-        localStream.getVideoTracks();
 
-    if (!videoTracks.length)
+    const tracks =
+        localStream
+            .getVideoTracks();
+
+
+    if (!tracks.length)
         return;
+
 
     cameraDisabled =
         !cameraDisabled;
 
-    videoTracks.forEach(
+
+    tracks.forEach(
         track => {
+
             track.enabled =
                 !cameraDisabled;
         }
@@ -3526,6 +4155,7 @@ function toggleCallCamera() {
         document.getElementById(
             "call-camera-button"
         );
+
 
     if (button) {
 
@@ -3547,8 +4177,10 @@ function startCallTimer() {
         callTimerInterval
     );
 
+
     callStartTime =
         Date.now();
+
 
     callTimerInterval =
         setInterval(
@@ -3562,24 +4194,35 @@ function startCallTimer() {
                         ) / 1000
                     );
 
+
                 const minutes =
                     Math.floor(
                         seconds / 60
                     );
 
+
                 const secs =
                     seconds % 60;
+
 
                 document
                     .getElementById(
                         "call-timer"
                     )
                     .innerText =
-                    String(minutes)
-                        .padStart(2, "0") +
+                    String(
+                        minutes
+                    ).padStart(
+                        2,
+                        "0"
+                    ) +
                     ":" +
-                    String(secs)
-                        .padStart(2, "0");
+                    String(
+                        secs
+                    ).padStart(
+                        2,
+                        "0"
+                    );
 
             },
             1000
@@ -3610,11 +4253,14 @@ function endCall() {
         callTimerInterval
     );
 
+
     callTimerInterval =
         null;
 
 
-    if (localStream) {
+    if (
+        localStream
+    ) {
 
         localStream
             .getTracks()
@@ -3623,12 +4269,15 @@ function endCall() {
                     track.stop()
             );
 
+
         localStream =
             null;
     }
 
 
-    if (peerConnection) {
+    if (
+        peerConnection
+    ) {
 
         peerConnection.close();
 
@@ -3642,10 +4291,12 @@ function endCall() {
             "remoteVideo"
         );
 
+
     const localVideo =
         document.getElementById(
             "localVideo"
         );
+
 
     const remoteAudio =
         document.getElementById(
@@ -3656,8 +4307,10 @@ function endCall() {
     remoteVideo.srcObject =
         null;
 
+
     localVideo.srcObject =
         null;
+
 
     remoteAudio.srcObject =
         null;
@@ -3666,6 +4319,7 @@ function endCall() {
     remoteVideo.classList.add(
         "hidden"
     );
+
 
     localVideo.classList.add(
         "hidden"
@@ -3680,6 +4334,7 @@ function endCall() {
             "hidden"
         );
 
+
     document
         .getElementById(
             "call-modal"
@@ -3692,14 +4347,25 @@ function endCall() {
     incomingCallData =
         null;
 
+
     micMuted =
         false;
+
 
     cameraDisabled =
         false;
 
+
     currentCallType =
         null;
+
+
+    document
+        .getElementById(
+            "call-timer"
+        )
+        .innerText =
+        "00:00";
 }
 
 
@@ -3712,7 +4378,9 @@ socket.on(
     data => {
 
         if (
-            usersData[data.username]
+            usersData[
+                data.username
+            ]
         ) {
 
             usersData[
@@ -3720,28 +4388,17 @@ socket.on(
             ].status =
                 "غير متصل";
 
+
             usersData[
                 data.username
             ].lastSeen =
                 data.lastSeen;
         }
 
+
         renderChatsList();
 
         updateCurrentStatus();
-    }
-);
-
-
-// =====================================================
-// ERROR
-// =====================================================
-
-socket.on(
-    "message_error",
-    message => {
-
-        alert(message);
     }
 );
 
@@ -3759,15 +4416,19 @@ function showToast(
             "div"
         );
 
+
     toast.className =
         "fixed bottom-5 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-3 rounded-xl z-[99999] shadow-xl";
+
 
     toast.innerText =
         message;
 
+
     document.body.appendChild(
         toast
     );
+
 
     setTimeout(
         () => toast.remove(),
@@ -3777,7 +4438,7 @@ function showToast(
 
 
 // =====================================================
-// ESCAPE HTML
+// ESCAPE
 // =====================================================
 
 function escapeHtml(
@@ -3788,8 +4449,10 @@ function escapeHtml(
         text === null ||
         text === undefined
     ) {
+
         return "";
     }
+
 
     return String(text)
         .replace(
@@ -3816,7 +4479,7 @@ function escapeHtml(
 
 
 // =====================================================
-// SOCKET DISCONNECT
+// DISCONNECT
 // =====================================================
 
 socket.on(
