@@ -1,491 +1,3847 @@
+```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>واتساب ويب - متكامل مع المكالمات والإشعارات</title>
+
+    <title>دردشة ويب</title>
+
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    >
+
     <style>
-        body { background-color: #dadbd4; font-family: Tahoma, sans-serif; }
-        .whatsapp-bg { background-color: #efeae2; background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); }
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: Tahoma, Arial, sans-serif;
+            background: #dadbd4;
+            transition: background .2s;
+        }
+
+        .whatsapp-bg {
+            background-color: #efeae2;
+            background-image:
+                url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+        }
+
+        body.dark {
+            background: #111b21;
+        }
+
+        body.dark .dark-main {
+            background: #202c33 !important;
+            color: #e9edef;
+        }
+
+        body.dark .dark-side {
+            background: #111b21 !important;
+            color: #e9edef;
+        }
+
+        body.dark .dark-header {
+            background: #202c33 !important;
+            border-color: #374045 !important;
+        }
+
+        body.dark .dark-input {
+            background: #2a3942 !important;
+            color: #e9edef !important;
+        }
+
+        body.dark .dark-input::placeholder {
+            color: #aebac1;
+        }
+
+        body.dark .dark-text {
+            color: #e9edef !important;
+        }
+
+        body.dark .dark-muted {
+            color: #8696a0 !important;
+        }
+
+        body.dark .search-box {
+            background: #202c33 !important;
+        }
+
+        body.dark .chat-item:hover {
+            background: #202c33 !important;
+        }
+
+        body.dark .chat-selected {
+            background: #2a3942 !important;
+        }
+
+        body.dark .incoming-message {
+            background: #202c33 !important;
+            color: #e9edef !important;
+        }
+
+        body.dark .outgoing-message {
+            background: #005c4b !important;
+            color: white !important;
+        }
+
+        .chat-item {
+            transition: background .15s;
+        }
+
+        .chat-item:hover {
+            background: #f5f5f5;
+        }
+
+        .chat-selected {
+            background: #e9edef;
+        }
+
+        .message-menu {
+            min-width: 150px;
+        }
+
+        .typing-dot {
+            animation: blink 1.4s infinite both;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: .2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: .4s;
+        }
+
+        @keyframes blink {
+            0%, 80%, 100% {
+                opacity: .2;
+            }
+
+            40% {
+                opacity: 1;
+            }
+        }
+
+        .recording {
+            animation: pulseRecord 1s infinite;
+        }
+
+        @keyframes pulseRecord {
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        .modal {
+            backdrop-filter: blur(5px);
+        }
+
+        .context-menu {
+            position: fixed;
+            z-index: 9999;
+        }
+
+        .unread-badge {
+            min-width: 20px;
+            height: 20px;
+        }
+
+        .call-video {
+            background: #000;
+            object-fit: cover;
+        }
+
+        #messages-container {
+            scroll-behavior: smooth;
+        }
+
+        @media (max-width: 768px) {
+            #app-screen {
+                max-height: 100vh !important;
+                height: 100vh !important;
+                border-radius: 0 !important;
+            }
+
+            #sidebar {
+                width: 100% !important;
+            }
+
+            #chat-panel {
+                width: 100% !important;
+            }
+
+            .mobile-hidden {
+                display: none !important;
+            }
+
+            .mobile-show {
+                display: flex !important;
+            }
+        }
     </style>
 </head>
-<body class="h-screen flex items-center justify-center p-0 md:p-4 overflow-hidden">
 
-    <!-- شاشة تسجيل الدخول -->
-    <div id="login-screen" class="fixed inset-0 bg-[#00a884] flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-lg shadow-xl w-96 text-center">
-            <h2 class="text-2xl font-bold text-[#00a884] mb-4">تسجيل الدخول إلى واتساب</h2>
-            <input type="text" id="username-input" placeholder="أدخل اسمك الكريم..." class="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:border-[#00a884]">
-            <button onclick="login()" class="w-full bg-[#00a884] text-white py-2 rounded-lg font-bold hover:bg-[#008f6f] transition">دخول</button>
+<body class="h-screen overflow-hidden">
+
+<!-- ===================================================== -->
+<!-- LOGIN -->
+<!-- ===================================================== -->
+
+<div
+    id="login-screen"
+    class="fixed inset-0 bg-[#00a884] flex items-center justify-center z-[10000] p-4"
+>
+    <div class="bg-white rounded-2xl shadow-2xl p-7 w-full max-w-md text-center">
+
+        <div
+            class="w-20 h-20 mx-auto mb-5 rounded-full bg-[#00a884] text-white flex items-center justify-center"
+        >
+            <i class="fa-solid fa-comments text-4xl"></i>
         </div>
+
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">
+            الدردشة
+        </h1>
+
+        <p class="text-gray-500 mb-6">
+            أدخل اسمك للبدء
+        </p>
+
+        <input
+            id="username-input"
+            type="text"
+            maxlength="30"
+            autocomplete="off"
+            placeholder="اسم المستخدم"
+            class="w-full border rounded-xl px-4 py-3 mb-3 outline-none focus:border-[#00a884]"
+            onkeypress="if(event.key==='Enter') login()"
+        >
+
+        <button
+            onclick="login()"
+            class="w-full bg-[#00a884] hover:bg-[#008f72] text-white py-3 rounded-xl font-bold"
+        >
+            دخول
+        </button>
+
+        <p
+            id="login-error"
+            class="text-red-500 text-sm mt-3 hidden"
+        ></p>
     </div>
+</div>
 
-    <!-- التطبيق الرئيسي -->
-    <div id="app-screen" class="w-full h-full max-w-7xl max-h-[95vh] bg-[#f0f2f5] shadow-2xl flex rounded-none md:rounded-lg overflow-hidden hidden">
-        
-        <!-- الشريط الجانبي -->
-        <div class="w-1/3 bg-white border-r border-gray-200 flex flex-col">
-            <div class="bg-[#f0f2f5] p-4 flex justify-between items-center border-b">
-                <span id="my-username-display" class="font-bold text-gray-700"></span>
-                <div class="flex space-x-3 space-x-reverse">
-                    <button onclick="createGroup()" class="text-gray-600 hover:text-[#00a884]" title="إنشاء مجموعة"><i class="fa-solid fa-users-rectangle text-xl"></i></button>
+
+<!-- ===================================================== -->
+<!-- APP -->
+<!-- ===================================================== -->
+
+<div
+    id="app-screen"
+    class="hidden w-full h-full max-w-[1500px] mx-auto bg-[#f0f2f5] shadow-2xl overflow-hidden md:h-[95vh] md:my-[2.5vh] md:rounded-xl"
+>
+
+    <!-- ================================================= -->
+    <!-- SIDEBAR -->
+    <!-- ================================================= -->
+
+    <aside
+        id="sidebar"
+        class="w-[380px] bg-white flex flex-col border-l border-gray-200 dark-side"
+    >
+
+        <!-- PROFILE HEADER -->
+
+        <div
+            class="dark-header bg-[#f0f2f5] p-3 flex items-center justify-between border-b"
+        >
+
+            <div class="flex items-center gap-3">
+
+                <div
+                    id="my-avatar"
+                    class="w-11 h-11 rounded-full bg-[#00a884] text-white flex items-center justify-center font-bold"
+                >
+                    <i class="fa-solid fa-user"></i>
                 </div>
-            </div>
-            
-            <!-- شريط البحث -->
-            <div class="p-2 bg-white border-b">
-                <div class="flex items-center bg-[#f0f2f5] px-3 py-1.5 rounded-lg">
-                    <i class="fa-solid fa-search text-gray-400 ml-2"></i>
-                    <input type="text" id="search-input" placeholder="بحث عن محادثة..." oninput="filterChats()" class="w-full bg-transparent text-sm focus:outline-none">
-                </div>
-            </div>
 
-            <div id="chats-list" class="flex-1 overflow-y-auto divide-y divide-gray-100">
-                <!-- المحادثات والأعضاء -->
-            </div>
-        </div>
+                <div>
+                    <div
+                        id="my-username-display"
+                        class="font-bold dark-text"
+                    >
+                        -
+                    </div>
 
-        <!-- نافذة المحادثة -->
-        <div class="w-2/3 flex flex-col whatsapp-bg">
-            <!-- رأس المحادثة -->
-            <div class="bg-[#f0f2f5] p-4 flex justify-between items-center border-b">
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-white font-bold"><i class="fa-solid fa-user"></i></div>
-                    <div>
-                        <h4 id="current-chat-title" class="font-bold text-gray-800">اختر محادثة لبدء الدردشة</h4>
-                        <span id="current-chat-status" class="text-xs text-gray-500"></span>
+                    <div
+                        id="online-count"
+                        class="text-xs text-green-600"
+                    >
+                        0 متصل
                     </div>
                 </div>
-                <div class="flex space-x-4 space-x-reverse">
-                    <button onclick="startCall('audio')" class="text-gray-600 hover:text-[#00a884] text-xl" title="مكالمة صوتية"><i class="fa-solid fa-phone"></i></button>
-                    <button onclick="startCall('video')" class="text-gray-600 hover:text-[#00a884] text-xl" title="مكالمة فيديو"><i class="fa-solid fa-video"></i></button>
-                </div>
+
             </div>
 
-            <!-- رسائل المحادثة -->
-            <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-3">
-                <!-- الرسائل -->
-            </div>
+            <div class="flex items-center gap-4">
 
-            <!-- إدخال الرسالة والأزرار الإضافية -->
-            <div class="bg-[#f0f2f5] p-3 flex flex-col">
-                <div id="typing-indicator" class="text-xs text-[#00a884] h-4 mb-1 px-2 font-semibold hidden">يكتب الآن...</div>
-                <div class="flex items-center space-x-3 space-x-reverse">
-                    <label class="text-gray-600 hover:text-[#00a884] cursor-pointer text-xl" title="إرسال صورة">
-                        <i class="fa-solid fa-image"></i>
-                        <input type="file" accept="image/*" class="hidden" onchange="sendImage(event)">
-                    </label>
+                <button
+                    onclick="toggleDarkMode()"
+                    title="الوضع الليلي"
+                    class="text-gray-600 dark-muted hover:text-[#00a884]"
+                >
+                    <i
+                        id="dark-icon"
+                        class="fa-solid fa-moon text-xl"
+                    ></i>
+                </button>
 
-                    <button id="mic-btn" onclick="toggleVoiceRecording()" class="text-gray-600 hover:text-red-600 text-xl transition" title="تسجيل رسالة صوتية">
-                        <i class="fa-solid fa-microphone"></i>
-                    </button>
+                <button
+                    onclick="createGroup()"
+                    title="مجموعة جديدة"
+                    class="text-gray-600 dark-muted hover:text-[#00a884]"
+                >
+                    <i class="fa-solid fa-users-rectangle text-xl"></i>
+                </button>
 
-                    <input type="text" id="message-input" placeholder="اكتب رسالة..." class="flex-1 bg-white px-4 py-2 rounded-lg border-none focus:outline-none" oninput="notifyTyping()" onkeypress="handleKeyPress(event)">
-                    
-                    <button onclick="sendMessage()" class="bg-[#00a884] text-white px-4 py-2 rounded-lg hover:bg-[#008f6f]"><i class="fa-solid fa-paper-plane"></i></button>
-                </div>
             </div>
         </div>
-    </div>
 
-    <!-- نافذة المكالمة -->
-    <div id="call-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
-        <div class="bg-white p-6 rounded-xl shadow-2xl text-center w-[500px]">
-            <h3 id="call-status-text" class="text-lg font-bold mb-4">جاري الاتصال...</h3>
-            <div class="flex justify-center space-x-4 mb-4">
-                <video id="localVideo" autoplay muted class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>
-                <video id="remoteVideo" autoplay class="w-48 h-36 bg-black rounded-lg object-cover hidden"></video>
-                <audio id="remoteAudio" autoplay></audio>
+
+        <!-- SEARCH -->
+
+        <div class="p-2 border-b bg-white dark-header">
+
+            <div
+                class="search-box bg-[#f0f2f5] rounded-xl px-3 py-2 flex items-center gap-2"
+            >
+
+                <i class="fa-solid fa-search text-gray-400"></i>
+
+                <input
+                    id="search-input"
+                    type="text"
+                    placeholder="بحث عن محادثة..."
+                    autocomplete="off"
+                    oninput="filterChats()"
+                    class="dark-input flex-1 bg-transparent outline-none text-sm"
+                >
+
             </div>
-            <div id="call-actions">
-                <button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>
+
+        </div>
+
+
+        <!-- CHATS -->
+
+        <div
+            id="chats-list"
+            class="flex-1 overflow-y-auto divide-y divide-gray-100"
+        ></div>
+
+    </aside>
+
+
+    <!-- ================================================= -->
+    <!-- CHAT -->
+    <!-- ================================================= -->
+
+    <main
+        id="chat-panel"
+        class="hidden md:flex flex-1 flex-col whatsapp-bg"
+    >
+
+        <!-- CHAT HEADER -->
+
+        <header
+            class="dark-header bg-[#f0f2f5] p-3 border-b flex items-center justify-between"
+        >
+
+            <div class="flex items-center gap-3">
+
+                <button
+                    onclick="showSidebar()"
+                    class="md:hidden text-gray-600"
+                >
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+
+                <div
+                    id="current-avatar"
+                    class="w-11 h-11 rounded-full bg-gray-400 text-white flex items-center justify-center"
+                >
+                    <i class="fa-solid fa-user"></i>
+                </div>
+
+                <div>
+
+                    <div
+                        id="current-chat-title"
+                        class="font-bold dark-text"
+                    >
+                        اختر محادثة
+                    </div>
+
+                    <div
+                        id="current-chat-status"
+                        class="text-xs text-gray-500 dark-muted"
+                    ></div>
+
+                </div>
+
+            </div>
+
+
+            <div class="flex items-center gap-5">
+
+                <button
+                    onclick="searchInsideChat()"
+                    title="بحث داخل المحادثة"
+                    class="text-gray-600 dark-muted"
+                >
+                    <i class="fa-solid fa-magnifying-glass text-lg"></i>
+                </button>
+
+                <button
+                    onclick="startCall('audio')"
+                    title="مكالمة صوتية"
+                    class="text-gray-600 dark-muted hover:text-[#00a884]"
+                >
+                    <i class="fa-solid fa-phone text-lg"></i>
+                </button>
+
+                <button
+                    onclick="startCall('video')"
+                    title="مكالمة فيديو"
+                    class="text-gray-600 dark-muted hover:text-[#00a884]"
+                >
+                    <i class="fa-solid fa-video text-lg"></i>
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- SEARCH INSIDE -->
+
+        <div
+            id="chat-search-bar"
+            class="hidden bg-white border-b p-2"
+        >
+
+            <div class="flex gap-2">
+
+                <input
+                    id="chat-search-input"
+                    class="flex-1 border rounded-lg px-3 py-2 outline-none"
+                    placeholder="ابحث داخل المحادثة..."
+                    oninput="runLocalSearch()"
+                >
+
+                <button
+                    onclick="closeChatSearch()"
+                    class="px-3 text-red-500"
+                >
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- MESSAGES -->
+
+        <div
+            id="messages-container"
+            class="flex-1 overflow-y-auto p-4 space-y-2"
+        ></div>
+
+
+        <!-- TYPING -->
+
+        <div
+            id="typing-indicator"
+            class="hidden px-5 pb-1 text-xs text-[#00a884] font-bold"
+        >
+            يكتب الآن...
+        </div>
+
+
+        <!-- INPUT -->
+
+        <div
+            class="dark-header bg-[#f0f2f5] p-2 md:p-3"
+        >
+
+            <!-- EDIT BAR -->
+
+            <div
+                id="edit-bar"
+                class="hidden bg-white rounded-lg p-2 mb-2 flex items-center justify-between"
+            >
+
+                <div>
+                    <div class="text-xs text-[#00a884] font-bold">
+                        تعديل الرسالة
+                    </div>
+
+                    <div
+                        id="edit-preview"
+                        class="text-sm text-gray-500 truncate max-w-[300px]"
+                    ></div>
+                </div>
+
+                <button
+                    onclick="cancelEdit()"
+                    class="text-red-500 px-2"
+                >
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+
+            <div class="flex items-center gap-2">
+
+                <!-- FILE -->
+
+                <label
+                    title="إرسال ملف"
+                    class="cursor-pointer text-gray-600 dark-muted hover:text-[#00a884] text-xl px-1"
+                >
+                    <i class="fa-solid fa-paperclip"></i>
+
+                    <input
+                        type="file"
+                        class="hidden"
+                        onchange="sendFile(event)"
+                    >
+                </label>
+
+
+                <!-- IMAGE -->
+
+                <label
+                    title="إرسال صورة"
+                    class="cursor-pointer text-gray-600 dark-muted hover:text-[#00a884] text-xl px-1"
+                >
+                    <i class="fa-solid fa-image"></i>
+
+                    <input
+                        type="file"
+                        accept="image/*"
+                        class="hidden"
+                        onchange="sendImage(event)"
+                    >
+                </label>
+
+
+                <!-- VIDEO -->
+
+                <label
+                    title="إرسال فيديو"
+                    class="cursor-pointer text-gray-600 dark-muted hover:text-[#00a884] text-xl px-1"
+                >
+                    <i class="fa-solid fa-video"></i>
+
+                    <input
+                        type="file"
+                        accept="video/*"
+                        class="hidden"
+                        onchange="sendFile(event)"
+                    >
+                </label>
+
+
+                <!-- MIC -->
+
+                <button
+                    id="mic-btn"
+                    onclick="toggleVoiceRecording()"
+                    title="رسالة صوتية"
+                    class="text-gray-600 dark-muted hover:text-red-500 text-xl px-1"
+                >
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+
+
+                <!-- INPUT -->
+
+                <input
+                    id="message-input"
+                    type="text"
+                    maxlength="5000"
+                    autocomplete="off"
+                    placeholder="اكتب رسالة..."
+                    class="dark-input flex-1 bg-white rounded-xl px-4 py-3 outline-none"
+                    oninput="notifyTyping()"
+                    onkeypress="handleKeyPress(event)"
+                >
+
+
+                <!-- SEND -->
+
+                <button
+                    onclick="sendMessage()"
+                    class="w-11 h-11 rounded-full bg-[#00a884] text-white flex items-center justify-center hover:bg-[#008f72]"
+                >
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+
             </div>
         </div>
+
+    </main>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- CALL MODAL -->
+<!-- ===================================================== -->
+
+<div
+    id="call-modal"
+    class="modal hidden fixed inset-0 bg-black/80 z-[9000] items-center justify-center p-4"
+>
+
+    <div
+        class="bg-[#202c33] text-white rounded-2xl shadow-2xl w-full max-w-3xl p-5"
+    >
+
+        <div class="flex items-center justify-between mb-4">
+
+            <div>
+
+                <div
+                    id="call-status-text"
+                    class="font-bold text-lg"
+                >
+                    جاري الاتصال...
+                </div>
+
+                <div
+                    id="call-timer"
+                    class="text-xs text-gray-400 mt-1"
+                >
+                    00:00
+                </div>
+
+            </div>
+
+            <button
+                onclick="endCall()"
+                class="text-gray-300 hover:text-white"
+            >
+                <i class="fa-solid fa-xmark text-2xl"></i>
+            </button>
+
+        </div>
+
+
+        <div
+            id="video-area"
+            class="flex flex-wrap justify-center gap-3 min-h-[250px]"
+        >
+
+            <video
+                id="remoteVideo"
+                autoplay
+                playsinline
+                class="call-video hidden w-full max-w-[600px] h-[350px] rounded-xl"
+            ></video>
+
+            <video
+                id="localVideo"
+                autoplay
+                muted
+                playsinline
+                class="call-video hidden w-40 h-28 rounded-xl absolute bottom-24 left-8 border-2 border-white"
+            ></video>
+
+            <audio
+                id="remoteAudio"
+                autoplay
+            ></audio>
+
+        </div>
+
+
+        <div
+            id="call-actions"
+            class="flex justify-center items-center gap-4 mt-5"
+        ></div>
+
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        let myUsername = "";
-        let currentChat = "الدردشة العامة";
-        let allMessages = [];
-        let usersData = {};
-        let groupsList = [];
-        let typingTimeout;
-        
-        let peerConnection;
-        let localStream;
-        let remoteStream;
-        let incomingCallData = null;
+</div>
 
-        let mediaRecorder;
-        let audioChunks = [];
-        let isRecording = false;
 
-        const rtcConfig = {
-            iceServers: [
+<!-- ===================================================== -->
+<!-- CONTEXT MENU -->
+<!-- ===================================================== -->
+
+<div
+    id="message-context-menu"
+    class="context-menu hidden bg-white rounded-xl shadow-2xl border overflow-hidden"
+>
+
+    <button
+        onclick="contextCopy()"
+        class="message-menu w-full text-right px-4 py-3 hover:bg-gray-100"
+    >
+        <i class="fa-solid fa-copy ml-2"></i>
+        نسخ
+    </button>
+
+    <button
+        id="context-edit"
+        onclick="contextEdit()"
+        class="message-menu w-full text-right px-4 py-3 hover:bg-gray-100"
+    >
+        <i class="fa-solid fa-pen ml-2"></i>
+        تعديل
+    </button>
+
+    <button
+        onclick="contextDelete()"
+        class="message-menu w-full text-right px-4 py-3 hover:bg-gray-100 text-red-500"
+    >
+        <i class="fa-solid fa-trash ml-2"></i>
+        حذف
+    </button>
+
+</div>
+
+
+<!-- ===================================================== -->
+<!-- SCRIPT -->
+<!-- ===================================================== -->
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+const socket = io();
+
+
+// =====================================================
+// VARIABLES
+// =====================================================
+
+let myUsername = "";
+
+let currentChat = "الدردشة العامة";
+
+let allMessages = [];
+
+let usersData = {};
+
+let groupsList = [];
+
+let typingTimeout;
+
+let unreadCounts = {};
+
+let editingMessageId = null;
+
+let contextMessageId = null;
+
+let darkMode =
+    localStorage.getItem("darkMode") === "true";
+
+
+let peerConnection = null;
+
+let localStream = null;
+
+let remoteStream = null;
+
+let incomingCallData = null;
+
+let currentCallType = null;
+
+let callStartTime = null;
+
+let callTimerInterval = null;
+
+let micMuted = false;
+
+let cameraDisabled = false;
+
+
+let mediaRecorder = null;
+
+let audioChunks = [];
+
+let isRecording = false;
+
+
+// =====================================================
+// RTC
+// =====================================================
+
+const rtcConfig = {
+
+    iceServers: [
+
+        {
+            urls: "stun:stun.relay.metered.ca:80"
+        },
+
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "5a7f0ee6288a27c37fc25fa6",
+            credential: "xHtDb/xICUr5qHKb"
+        },
+
+        {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: "5a7f0ee6288a27c37fc25fa6",
+            credential: "xHtDb/xICUr5qHKb"
+        },
+
+        {
+            urls: "turn:global.relay.metered.ca:443",
+            username: "5a7f0ee6288a27c37fc25fa6",
+            credential: "xHtDb/xICUr5qHKb"
+        },
+
+        {
+            urls: "turn:global.relay.metered.ca:443?transport=tcp",
+            username: "5a7f0ee6288a27c37fc25fa6",
+            credential: "xHtDb/xICUr5qHKb"
+        }
+    ]
+};
+
+
+// =====================================================
+// START
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    if (darkMode) {
+        document.body.classList.add("dark");
+        updateDarkIcon();
+    }
+
+    document.addEventListener("click", (e) => {
+
+        const menu =
+            document.getElementById("message-context-menu");
+
+        if (
+            !menu.contains(e.target) &&
+            !e.target.closest(".message-more")
+        ) {
+            menu.classList.add("hidden");
+        }
+    });
+});
+
+
+// =====================================================
+// DARK MODE
+// =====================================================
+
+function toggleDarkMode() {
+
+    darkMode = !darkMode;
+
+    document.body.classList.toggle("dark", darkMode);
+
+    localStorage.setItem(
+        "darkMode",
+        darkMode
+    );
+
+    updateDarkIcon();
+}
+
+function updateDarkIcon() {
+
+    const icon =
+        document.getElementById("dark-icon");
+
+    if (!icon) return;
+
+    icon.className =
+        darkMode
+            ? "fa-solid fa-sun text-xl"
+            : "fa-solid fa-moon text-xl";
+}
+
+
+// =====================================================
+// LOGIN
+// =====================================================
+
+function login() {
+
+    const input =
+        document.getElementById("username-input");
+
+    const username =
+        input.value.trim();
+
+    if (!username) {
+
+        showLoginError(
+            "اكتب اسم المستخدم أولاً"
+        );
+
+        return;
+    }
+
+    if (username.length < 2) {
+
+        showLoginError(
+            "اسم المستخدم قصير جدًا"
+        );
+
+        return;
+    }
+
+    if (
+        window.Notification &&
+        Notification.permission !== "granted"
+    ) {
+        Notification.requestPermission().catch(() => {});
+    }
+
+    socket.emit(
+        "verify_user",
+        username
+    );
+}
+
+function showLoginError(text) {
+
+    const error =
+        document.getElementById("login-error");
+
+    error.innerText = text;
+
+    error.classList.remove("hidden");
+}
+
+
+// =====================================================
+// AUTH
+// =====================================================
+
+socket.on("auth_success", (username) => {
+
+    myUsername = username;
+
+    document
+        .getElementById("login-screen")
+        .classList.add("hidden");
+
+    document
+        .getElementById("app-screen")
+        .classList.remove("hidden");
+
+    document
+        .getElementById("my-username-display")
+        .innerText = username;
+
+    updateMyAvatar();
+
+    switchChat("الدردشة العامة");
+
+    requestNotificationPermission();
+});
+
+
+socket.on("auth_error", (message) => {
+
+    showLoginError(message);
+});
+
+
+async function requestNotificationPermission() {
+
+    if (
+        "Notification" in window &&
+        Notification.permission === "default"
+    ) {
+        try {
+            await Notification.requestPermission();
+        } catch(e) {}
+    }
+}
+
+
+// =====================================================
+// USERS / GROUPS
+// =====================================================
+
+socket.on("update_users", (data) => {
+
+    usersData = data || {};
+
+    renderChatsList();
+
+    updateOnlineCount();
+
+    updateCurrentStatus();
+});
+
+
+socket.on("update_groups", (groups) => {
+
+    groupsList = groups || [];
+
+    renderChatsList();
+});
+
+
+function updateOnlineCount() {
+
+    let count = 0;
+
+    for (const username in usersData) {
+
+        if (
+            username !== myUsername &&
+            usersData[username].status === "متصل"
+        ) {
+            count++;
+        }
+    }
+
+    document
+        .getElementById("online-count")
+        .innerText =
+        count + " متصل";
+}
+
+
+// =====================================================
+// CHAT LIST
+// =====================================================
+
+function renderChatsList(filter = "") {
+
+    const list =
+        document.getElementById("chats-list");
+
+    list.innerHTML = "";
+
+    const query =
+        filter.toLowerCase();
+
+
+    // GROUPS
+
+    groupsList.forEach(group => {
+
+        if (
+            !group.toLowerCase().includes(query)
+        ) {
+            return;
+        }
+
+        const selected =
+            currentChat === group;
+
+        list.innerHTML += `
+
+            <div
+                onclick="switchChat(${JSON.stringify(group)})"
+                class="chat-item ${
+                    selected
+                        ? "chat-selected"
+                        : ""
+                } p-3 cursor-pointer flex items-center gap-3"
+            >
+
+                <div
+                    class="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0"
+                >
+                    <i class="fa-solid fa-users"></i>
+                </div>
+
+                <div class="min-w-0 flex-1">
+
+                    <div class="flex justify-between">
+
+                        <span class="font-bold dark-text truncate">
+                            ${escapeHtml(group)}
+                        </span>
+
+                        ${
+                            unreadCounts[group]
+                                ? `
+                                    <span class="unread-badge bg-[#25d366] text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                        ${unreadCounts[group]}
+                                    </span>
+                                `
+                                : ""
+                        }
+
+                    </div>
+
+                    <div class="text-xs text-gray-500 dark-muted">
+                        مجموعة
+                    </div>
+
+                </div>
+
+            </div>
+        `;
+    });
+
+
+    // USERS
+
+    for (const username in usersData) {
+
+        if (username === myUsername) {
+            continue;
+        }
+
+        if (
+            !username
+                .toLowerCase()
+                .includes(query)
+        ) {
+            continue;
+        }
+
+        const user =
+            usersData[username];
+
+        const selected =
+            currentChat === username;
+
+        const statusColor =
+            user.status === "متصل"
+                ? "text-green-500"
+                : "text-gray-400";
+
+        let lastSeenText =
+            user.status === "متصل"
+                ? "متصل الآن"
+                : formatLastSeen(user.lastSeen);
+
+
+        list.innerHTML += `
+
+            <div
+                onclick="switchChat(${JSON.stringify(username)})"
+                class="chat-item ${
+                    selected
+                        ? "chat-selected"
+                        : ""
+                } p-3 cursor-pointer flex items-center gap-3"
+            >
+
+                <div
+                    class="w-12 h-12 rounded-full bg-gray-400 text-white flex items-center justify-center shrink-0"
+                >
+                    <i class="fa-solid fa-user"></i>
+                </div>
+
+                <div class="min-w-0 flex-1">
+
+                    <div class="flex justify-between">
+
+                        <span class="font-bold dark-text truncate">
+                            ${escapeHtml(username)}
+                        </span>
+
+                        ${
+                            unreadCounts[username]
+                                ? `
+                                    <span class="unread-badge bg-[#25d366] text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                        ${unreadCounts[username]}
+                                    </span>
+                                `
+                                : ""
+                        }
+
+                    </div>
+
+                    <div
+                        class="text-xs ${statusColor}"
+                    >
+                        ${escapeHtml(lastSeenText)}
+                    </div>
+
+                </div>
+
+            </div>
+        `;
+    }
+}
+
+
+function filterChats() {
+
+    const value =
+        document
+            .getElementById("search-input")
+            .value
+            .trim();
+
+    renderChatsList(value);
+}
+
+
+// =====================================================
+// SWITCH CHAT
+// =====================================================
+
+function switchChat(chatName) {
+
+    currentChat = chatName;
+
+    unreadCounts[chatName] = 0;
+
+    document
+        .getElementById("current-chat-title")
+        .innerText = chatName;
+
+    updateCurrentStatus();
+
+    updateCurrentAvatar();
+
+    renderMessages();
+
+    renderChatsList(
+        document
+            .getElementById("search-input")
+            .value
+    );
+
+
+    // Mobile
+
+    if (window.innerWidth <= 768) {
+
+        document
+            .getElementById("sidebar")
+            .classList.add("hidden");
+
+        document
+            .getElementById("chat-panel")
+            .classList.remove("hidden");
+
+        document
+            .getElementById("chat-panel")
+            .classList.add("flex");
+    }
+}
+
+
+function showSidebar() {
+
+    document
+        .getElementById("chat-panel")
+        .classList.add("hidden");
+
+    document
+        .getElementById("chat-panel")
+        .classList.remove("flex");
+
+    document
+        .getElementById("sidebar")
+        .classList.remove("hidden");
+}
+
+
+function updateCurrentAvatar() {
+
+    const avatar =
+        document.getElementById(
+            "current-avatar"
+        );
+
+    const isGroup =
+        groupsList.includes(currentChat);
+
+    avatar.innerHTML =
+        isGroup
+            ? '<i class="fa-solid fa-users"></i>'
+            : '<i class="fa-solid fa-user"></i>';
+
+    avatar.className =
+        isGroup
+            ? "w-11 h-11 rounded-full bg-[#00a884] text-white flex items-center justify-center"
+            : "w-11 h-11 rounded-full bg-gray-400 text-white flex items-center justify-center";
+}
+
+
+function updateMyAvatar() {
+
+    const avatar =
+        document.getElementById("my-avatar");
+
+    if (myUsername) {
+
+        avatar.innerText =
+            myUsername
+                .charAt(0)
+                .toUpperCase();
+    }
+}
+
+
+function updateCurrentStatus() {
+
+    const status =
+        document.getElementById(
+            "current-chat-status"
+        );
+
+    if (
+        groupsList.includes(currentChat)
+    ) {
+
+        status.innerText =
+            "مجموعة";
+
+        return;
+    }
+
+    const user =
+        usersData[currentChat];
+
+    if (!user) {
+
+        status.innerText = "";
+
+        return;
+    }
+
+    if (user.status === "متصل") {
+
+        status.innerText =
+            "متصل الآن";
+
+    } else {
+
+        status.innerText =
+            formatLastSeen(
+                user.lastSeen
+            );
+    }
+}
+
+
+function formatLastSeen(timestamp) {
+
+    if (!timestamp) {
+        return "غير متصل";
+    }
+
+    const date =
+        new Date(timestamp);
+
+    return (
+        "آخر ظهور " +
+        date.toLocaleString(
+            "ar-IQ",
+            {
+                day: "2-digit",
+                month: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit"
+            }
+        )
+    );
+}
+
+
+// =====================================================
+// GROUP
+// =====================================================
+
+function createGroup() {
+
+    const name =
+        prompt(
+            "أدخل اسم المجموعة:"
+        );
+
+    if (!name) return;
+
+    socket.emit(
+        "create_group",
+        name.trim()
+    );
+}
+
+
+// =====================================================
+// SEND MESSAGE
+// =====================================================
+
+function sendMessage() {
+
+    const input =
+        document.getElementById(
+            "message-input"
+        );
+
+    const text =
+        input.value.trim();
+
+    if (!text) return;
+
+
+    // EDIT
+
+    if (editingMessageId) {
+
+        socket.emit(
+            "edit_message",
+            {
+                id: editingMessageId,
+                text: text
+            }
+        );
+
+        cancelEdit();
+
+        return;
+    }
+
+
+    const message = {
+
+        chat: currentChat,
+
+        type: "text",
+
+        text: text,
+
+        time:
+            new Date().toLocaleTimeString(
+                "ar-IQ",
                 {
-                    urls: "stun:stun.relay.metered.ca:80"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:80",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:443",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:443?transport=tcp",
-                    username: "5a7f0ee6288a27c37fc25fa6",
-                    credential: "xHtDb/xICUr5qHKb"
+                    hour: "2-digit",
+                    minute: "2-digit"
                 }
-            ]
+            )
+    };
+
+    socket.emit(
+        "send_message",
+        message
+    );
+
+    input.value = "";
+}
+
+
+// =====================================================
+// IMAGE
+// =====================================================
+
+function sendImage(event) {
+
+    const file =
+        event.target.files[0];
+
+    if (!file) return;
+
+    if (
+        file.size >
+        15 * 1024 * 1024
+    ) {
+
+        alert(
+            "الصورة أكبر من 15MB"
+        );
+
+        event.target.value = "";
+
+        return;
+    }
+
+    const reader =
+        new FileReader();
+
+    reader.onload = () => {
+
+        socket.emit(
+            "send_message",
+            {
+                chat: currentChat,
+                type: "image",
+                content: reader.result,
+                text: "",
+                time:
+                    new Date().toLocaleTimeString(
+                        "ar-IQ",
+                        {
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        }
+                    )
+            }
+        );
+    };
+
+    reader.readAsDataURL(file);
+
+    event.target.value = "";
+}
+
+
+// =====================================================
+// FILE / VIDEO
+// =====================================================
+
+function sendFile(event) {
+
+    const file =
+        event.target.files[0];
+
+    if (!file) return;
+
+    if (
+        file.size >
+        20 * 1024 * 1024
+    ) {
+
+        alert(
+            "الملف أكبر من 20MB"
+        );
+
+        event.target.value = "";
+
+        return;
+    }
+
+    const reader =
+        new FileReader();
+
+    reader.onload = () => {
+
+        socket.emit(
+            "send_message",
+            {
+                chat: currentChat,
+                type: getFileType(file),
+                content: reader.result,
+                text: file.name,
+                fileName: file.name,
+                fileSize: file.size,
+                mimeType: file.type,
+                time:
+                    new Date().toLocaleTimeString(
+                        "ar-IQ",
+                        {
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        }
+                    )
+            }
+        );
+    };
+
+    reader.readAsDataURL(file);
+
+    event.target.value = "";
+}
+
+
+function getFileType(file) {
+
+    if (
+        file.type.startsWith("video/")
+    ) {
+        return "video";
+    }
+
+    return "file";
+}
+
+
+// =====================================================
+// VOICE
+// =====================================================
+
+async function toggleVoiceRecording() {
+
+    const button =
+        document.getElementById(
+            "mic-btn"
+        );
+
+    if (!isRecording) {
+
+        try {
+
+            const stream =
+                await navigator.mediaDevices.getUserMedia(
+                    {
+                        audio: true
+                    }
+                );
+
+            mediaRecorder =
+                new MediaRecorder(
+                    stream
+                );
+
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable =
+                event => {
+
+                    if (event.data.size > 0) {
+                        audioChunks.push(
+                            event.data
+                        );
+                    }
+                };
+
+
+            mediaRecorder.onstop =
+                () => {
+
+                    const blob =
+                        new Blob(
+                            audioChunks,
+                            {
+                                type: "audio/webm"
+                            }
+                        );
+
+                    const reader =
+                        new FileReader();
+
+                    reader.onload =
+                        () => {
+
+                            socket.emit(
+                                "send_message",
+                                {
+                                    chat: currentChat,
+                                    type: "audio",
+                                    content: reader.result,
+                                    time:
+                                        new Date().toLocaleTimeString(
+                                            "ar-IQ",
+                                            {
+                                                hour: "2-digit",
+                                                minute: "2-digit"
+                                            }
+                                        )
+                                }
+                            );
+                        };
+
+                    reader.readAsDataURL(
+                        blob
+                    );
+
+                    stream
+                        .getTracks()
+                        .forEach(
+                            track =>
+                                track.stop()
+                        );
+                };
+
+
+            mediaRecorder.start();
+
+            isRecording = true;
+
+            button.classList.add(
+                "text-red-500",
+                "recording"
+            );
+
+        } catch (error) {
+
+            alert(
+                "تعذر الوصول إلى المايكروفون."
+            );
+        }
+
+    } else {
+
+        mediaRecorder.stop();
+
+        isRecording = false;
+
+        button.classList.remove(
+            "text-red-500",
+            "recording"
+        );
+    }
+}
+
+
+// =====================================================
+// KEYBOARD
+// =====================================================
+
+function handleKeyPress(event) {
+
+    if (
+        event.key === "Enter" &&
+        !event.shiftKey
+    ) {
+
+        event.preventDefault();
+
+        sendMessage();
+    }
+}
+
+
+// =====================================================
+// TYPING
+// =====================================================
+
+function notifyTyping() {
+
+    socket.emit(
+        "typing",
+        {
+            chat: currentChat
+        }
+    );
+}
+
+
+socket.on(
+    "display_typing",
+    data => {
+
+        if (
+            data.chat !== currentChat ||
+            data.username === myUsername
+        ) {
+            return;
+        }
+
+        const indicator =
+            document.getElementById(
+                "typing-indicator"
+            );
+
+        indicator.innerText =
+            data.username +
+            " يكتب الآن...";
+
+        indicator.classList.remove(
+            "hidden"
+        );
+
+        clearTimeout(
+            typingTimeout
+        );
+
+        typingTimeout =
+            setTimeout(
+                () => {
+
+                    indicator.classList.add(
+                        "hidden"
+                    );
+
+                },
+                2000
+            );
+    }
+);
+
+
+// =====================================================
+// LOAD HISTORY
+// =====================================================
+
+socket.on(
+    "load_history",
+    messages => {
+
+        allMessages =
+            messages || [];
+
+        renderMessages();
+    }
+);
+
+
+// =====================================================
+// RECEIVE MESSAGE
+// =====================================================
+
+socket.on(
+    "receive_message",
+    message => {
+
+        allMessages.push(
+            message
+        );
+
+        const isCurrent =
+            message.chat === currentChat;
+
+        if (
+            !isCurrent &&
+            message.username !== myUsername
+        ) {
+
+            unreadCounts[
+                message.chat
+            ] =
+                (unreadCounts[
+                    message.chat
+                ] || 0) + 1;
+
+            renderChatsList();
+
+            showNotification(
+                message
+            );
+
+            playSound(
+                "message"
+            );
+
+        }
+
+        renderMessages();
+    }
+);
+
+
+// =====================================================
+// STATUS
+// =====================================================
+
+socket.on(
+    "message_status",
+    data => {
+
+        const message =
+            allMessages.find(
+                m => m.id === data.id
+            );
+
+        if (message) {
+
+            message.status =
+                data.status;
+
+            renderMessages();
+        }
+    }
+);
+
+
+// =====================================================
+// EDITED
+// =====================================================
+
+socket.on(
+    "message_edited",
+    data => {
+
+        const message =
+            allMessages.find(
+                m => m.id === data.id
+            );
+
+        if (!message) return;
+
+        message.text =
+            data.text;
+
+        message.edited =
+            true;
+
+        renderMessages();
+    }
+);
+
+
+// =====================================================
+// DELETED
+// =====================================================
+
+socket.on(
+    "message_deleted",
+    data => {
+
+        const message =
+            allMessages.find(
+                m => m.id === data.id
+            );
+
+        if (!message) return;
+
+        message.deleted =
+            true;
+
+        message.text = "";
+
+        message.content = "";
+
+        renderMessages();
+    }
+);
+
+
+// =====================================================
+// RENDER MESSAGES
+// =====================================================
+
+function renderMessages() {
+
+    const container =
+        document.getElementById(
+            "messages-container"
+        );
+
+    const messages =
+        allMessages.filter(
+            m =>
+                m.chat === currentChat
+        );
+
+
+    container.innerHTML = "";
+
+
+    if (!messages.length) {
+
+        container.innerHTML = `
+
+            <div
+                class="h-full flex items-center justify-center"
+            >
+
+                <div
+                    class="bg-white/80 rounded-xl px-5 py-3 text-sm text-gray-500 shadow"
+                >
+                    لا توجد رسائل بعد
+                </div>
+
+            </div>
+        `;
+
+        return;
+    }
+
+
+    messages.forEach(message => {
+
+        const isMe =
+            message.username === myUsername;
+
+        const wrapper =
+            document.createElement(
+                "div"
+            );
+
+        wrapper.className =
+            `flex ${
+                isMe
+                    ? "justify-end"
+                    : "justify-start"
+            }`;
+
+
+        const bubble =
+            document.createElement(
+                "div"
+            );
+
+        bubble.className =
+            `relative max-w-[85%] md:max-w-[65%] px-3 py-2 rounded-xl shadow ${
+                isMe
+                    ? "outgoing-message bg-[#dcf8c6]"
+                    : "incoming-message bg-white"
+            }`;
+
+
+        if (!isMe) {
+
+            const sender =
+                document.createElement(
+                    "div"
+                );
+
+            sender.className =
+                "text-xs font-bold text-[#00a884] mb-1";
+
+            sender.innerText =
+                message.username;
+
+            bubble.appendChild(
+                sender
+            );
+        }
+
+
+        if (message.deleted) {
+
+            const deleted =
+                document.createElement(
+                    "div"
+                );
+
+            deleted.className =
+                "text-sm italic text-gray-500";
+
+            deleted.innerText =
+                "تم حذف هذه الرسالة";
+
+            bubble.appendChild(
+                deleted
+            );
+
+        } else {
+
+            const content =
+                createMessageContent(
+                    message
+                );
+
+            bubble.appendChild(
+                content
+            );
+        }
+
+
+        const footer =
+            document.createElement(
+                "div"
+            );
+
+        footer.className =
+            "flex items-center justify-end gap-1 mt-1";
+
+
+        const time =
+            document.createElement(
+                "span"
+            );
+
+        time.className =
+            "text-[10px] text-gray-500";
+
+        time.innerText =
+            message.time || "";
+
+        footer.appendChild(
+            time
+        );
+
+
+        if (message.edited) {
+
+            const edited =
+                document.createElement(
+                    "span"
+                );
+
+            edited.className =
+                "text-[9px] text-gray-400";
+
+            edited.innerText =
+                "معدلة";
+
+            footer.appendChild(
+                edited
+            );
+        }
+
+
+        if (isMe) {
+
+            const status =
+                document.createElement(
+                    "span"
+                );
+
+            status.innerHTML =
+                getMessageStatusIcon(
+                    message.status
+                );
+
+            footer.appendChild(
+                status
+            );
+        }
+
+
+        bubble.appendChild(
+            footer
+        );
+
+
+        // MORE BUTTON
+
+        const more =
+            document.createElement(
+                "button"
+            );
+
+        more.className =
+            "message-more absolute left-1 top-1 text-gray-400 hover:text-gray-700";
+
+        more.innerHTML =
+            '<i class="fa-solid fa-ellipsis-vertical"></i>';
+
+        more.onclick =
+            event => {
+
+                event.stopPropagation();
+
+                openMessageMenu(
+                    event,
+                    message
+                );
+            };
+
+        bubble.appendChild(
+            more
+        );
+
+
+        wrapper.appendChild(
+            bubble
+        );
+
+        container.appendChild(
+            wrapper
+        );
+
+
+        // READ
+
+        if (
+            !isMe &&
+            message.status !== "read"
+        ) {
+
+            socket.emit(
+                "mark_read",
+                {
+                    messageId:
+                        message.id
+                }
+            );
+        }
+
+    });
+
+
+    container.scrollTop =
+        container.scrollHeight;
+}
+
+
+// =====================================================
+// MESSAGE CONTENT
+// =====================================================
+
+function createMessageContent(
+    message
+) {
+
+    const box =
+        document.createElement(
+            "div"
+        );
+
+
+    if (message.type === "image") {
+
+        const image =
+            document.createElement(
+                "img"
+            );
+
+        image.src =
+            message.content;
+
+        image.className =
+            "max-w-full md:max-w-[350px] max-h-[400px] rounded-lg cursor-pointer";
+
+        image.onclick =
+            () => {
+
+                window.open(
+                    image.src,
+                    "_blank"
+                );
+            };
+
+        box.appendChild(
+            image
+        );
+
+        return box;
+    }
+
+
+    if (message.type === "audio") {
+
+        const audio =
+            document.createElement(
+                "audio"
+            );
+
+        audio.controls = true;
+
+        audio.src =
+            message.content;
+
+        audio.className =
+            "max-w-[280px]";
+
+        box.appendChild(
+            audio
+        );
+
+        return box;
+    }
+
+
+    if (message.type === "video") {
+
+        const video =
+            document.createElement(
+                "video"
+            );
+
+        video.controls = true;
+
+        video.src =
+            message.content;
+
+        video.className =
+            "max-w-full md:max-w-[400px] rounded-lg";
+
+        box.appendChild(
+            video
+        );
+
+        return box;
+    }
+
+
+    if (message.type === "file") {
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+        link.href =
+            message.content;
+
+        link.download =
+            message.fileName ||
+            "file";
+
+        link.target =
+            "_blank";
+
+        link.className =
+            "flex items-center gap-3 bg-black/5 rounded-lg p-3";
+
+        link.innerHTML = `
+
+            <i class="fa-solid fa-file text-2xl text-[#00a884]"></i>
+
+            <span class="text-sm break-all">
+                ${escapeHtml(
+                    message.fileName ||
+                    message.text ||
+                    "ملف"
+                )}
+            </span>
+
+        `;
+
+        box.appendChild(
+            link
+        );
+
+        return box;
+    }
+
+
+    const text =
+        document.createElement(
+            "div"
+        );
+
+    text.className =
+        "text-sm whitespace-pre-wrap break-words dark-text";
+
+    text.innerText =
+        message.text || "";
+
+    box.appendChild(
+        text
+    );
+
+    return box;
+}
+
+
+// =====================================================
+// MESSAGE STATUS
+// =====================================================
+
+function getMessageStatusIcon(
+    status
+) {
+
+    if (status === "read") {
+
+        return `
+            <span class="text-blue-500">
+                <i class="fa-solid fa-check-double"></i>
+            </span>
+        `;
+    }
+
+    if (status === "delivered") {
+
+        return `
+            <span class="text-gray-500">
+                <i class="fa-solid fa-check-double"></i>
+            </span>
+        `;
+    }
+
+    return `
+        <span class="text-gray-500">
+            <i class="fa-solid fa-check"></i>
+        </span>
+    `;
+}
+
+
+// =====================================================
+// CONTEXT MENU
+// =====================================================
+
+function openMessageMenu(
+    event,
+    message
+) {
+
+    contextMessageId =
+        message.id;
+
+    const menu =
+        document.getElementById(
+            "message-context-menu"
+        );
+
+    const editButton =
+        document.getElementById(
+            "context-edit"
+        );
+
+    editButton.style.display =
+        message.username === myUsername &&
+        message.type === "text" &&
+        !message.deleted
+            ? "block"
+            : "none";
+
+
+    menu.style.left =
+        Math.min(
+            event.clientX,
+            window.innerWidth - 180
+        ) + "px";
+
+    menu.style.top =
+        Math.min(
+            event.clientY,
+            window.innerHeight - 160
+        ) + "px";
+
+    menu.classList.remove(
+        "hidden"
+    );
+}
+
+
+function getContextMessage() {
+
+    return allMessages.find(
+        m =>
+            m.id === contextMessageId
+    );
+}
+
+
+async function contextCopy() {
+
+    const message =
+        getContextMessage();
+
+    if (!message) return;
+
+    const text =
+        message.text || "";
+
+    try {
+
+        await navigator.clipboard.writeText(
+            text
+        );
+
+        showToast(
+            "تم النسخ"
+        );
+
+    } catch(e) {}
+
+    closeContextMenu();
+}
+
+
+function contextEdit() {
+
+    const message =
+        getContextMessage();
+
+    if (!message) return;
+
+    if (
+        message.username !== myUsername ||
+        message.type !== "text"
+    ) {
+        return;
+    }
+
+    editingMessageId =
+        message.id;
+
+    document
+        .getElementById(
+            "message-input"
+        )
+        .value =
+        message.text;
+
+    document
+        .getElementById(
+            "edit-preview"
+        )
+        .innerText =
+        message.text;
+
+    document
+        .getElementById(
+            "edit-bar"
+        )
+        .classList.remove(
+            "hidden"
+        );
+
+    document
+        .getElementById(
+            "message-input"
+        )
+        .focus();
+
+    closeContextMenu();
+}
+
+
+function cancelEdit() {
+
+    editingMessageId =
+        null;
+
+    document
+        .getElementById(
+            "message-input"
+        )
+        .value = "";
+
+    document
+        .getElementById(
+            "edit-bar"
+        )
+        .classList.add(
+            "hidden"
+        );
+}
+
+
+function contextDelete() {
+
+    const message =
+        getContextMessage();
+
+    if (!message) return;
+
+    if (
+        message.username !== myUsername
+    ) {
+        closeContextMenu();
+
+        return;
+    }
+
+    if (
+        confirm(
+            "هل تريد حذف هذه الرسالة؟"
+        )
+    ) {
+
+        socket.emit(
+            "delete_message",
+            {
+                id: message.id
+            }
+        );
+    }
+
+    closeContextMenu();
+}
+
+
+function closeContextMenu() {
+
+    document
+        .getElementById(
+            "message-context-menu"
+        )
+        .classList.add(
+            "hidden"
+        );
+}
+
+
+// =====================================================
+// SEARCH INSIDE CHAT
+// =====================================================
+
+function searchInsideChat() {
+
+    document
+        .getElementById(
+            "chat-search-bar"
+        )
+        .classList.remove(
+            "hidden"
+        );
+
+    document
+        .getElementById(
+            "chat-search-input"
+        )
+        .focus();
+}
+
+
+function closeChatSearch() {
+
+    document
+        .getElementById(
+            "chat-search-bar"
+        )
+        .classList.add(
+            "hidden"
+        );
+
+    renderMessages();
+}
+
+
+function runLocalSearch() {
+
+    const query =
+        document
+            .getElementById(
+                "chat-search-input"
+            )
+            .value
+            .trim()
+            .toLowerCase();
+
+    if (!query) {
+
+        renderMessages();
+
+        return;
+    }
+
+
+    const container =
+        document.getElementById(
+            "messages-container"
+        );
+
+    container.innerHTML = "";
+
+
+    allMessages
+        .filter(
+            m =>
+                m.chat === currentChat &&
+                !m.deleted &&
+                (
+                    m.text ||
+                    ""
+                )
+                    .toLowerCase()
+                    .includes(query)
+        )
+        .forEach(
+            message => {
+
+                const result =
+                    document.createElement(
+                        "div"
+                    );
+
+                result.className =
+                    "bg-white rounded-lg p-3 shadow mb-2";
+
+                result.innerHTML = `
+
+                    <div class="text-xs text-gray-400">
+                        ${escapeHtml(
+                            message.username
+                        )}
+                        •
+                        ${escapeHtml(
+                            message.time || ""
+                        )}
+                    </div>
+
+                    <div class="mt-1">
+                        ${escapeHtml(
+                            message.text || ""
+                        )}
+                    </div>
+
+                `;
+
+                container.appendChild(
+                    result
+                );
+            }
+        );
+}
+
+
+// =====================================================
+// NOTIFICATIONS
+// =====================================================
+
+function showNotification(
+    message
+) {
+
+    if (
+        !("Notification" in window)
+    ) {
+        return;
+    }
+
+    if (
+        Notification.permission !==
+        "granted"
+    ) {
+        return;
+    }
+
+    let body =
+        "رسالة جديدة";
+
+    if (message.type === "text") {
+        body =
+            message.text;
+    }
+
+    if (message.type === "image") {
+        body =
+            "أرسل صورة";
+    }
+
+    if (message.type === "audio") {
+        body =
+            "أرسل رسالة صوتية";
+    }
+
+    if (message.type === "video") {
+        body =
+            "أرسل فيديو";
+    }
+
+    if (message.type === "file") {
+        body =
+            "أرسل ملف";
+    }
+
+
+    try {
+
+        new Notification(
+            "رسالة من " +
+            message.username,
+            {
+                body: body,
+                icon:
+                    "https://cdn-icons-png.flaticon.com/512/733/733585.png"
+            }
+        );
+
+    } catch(e) {}
+}
+
+
+// =====================================================
+// SOUND
+// =====================================================
+
+function playSound(type) {
+
+    try {
+
+        const AudioContext =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (!AudioContext) return;
+
+        const ctx =
+            new AudioContext();
+
+        const oscillator =
+            ctx.createOscillator();
+
+        const gain =
+            ctx.createGain();
+
+        oscillator.connect(
+            gain
+        );
+
+        gain.connect(
+            ctx.destination
+        );
+
+
+        if (type === "message") {
+
+            oscillator.frequency.value =
+                800;
+
+            gain.gain.value =
+                .08;
+
+            oscillator.start();
+
+            oscillator.stop(
+                ctx.currentTime +
+                .1
+            );
+        }
+
+
+        if (type === "ring") {
+
+            oscillator.frequency.value =
+                440;
+
+            gain.gain.value =
+                .15;
+
+            oscillator.start();
+
+            oscillator.stop(
+                ctx.currentTime +
+                .4
+            );
+        }
+
+    } catch(e) {}
+}
+
+
+// =====================================================
+// WEBRTC EVENTS
+// =====================================================
+
+function setupPeerConnectionEvents(
+    pc
+) {
+
+    pc.ontrack =
+        event => {
+
+            remoteStream =
+                event.streams[0];
+
+            const remoteVideo =
+                document.getElementById(
+                    "remoteVideo"
+                );
+
+            const remoteAudio =
+                document.getElementById(
+                    "remoteAudio"
+                );
+
+
+            if (
+                remoteStream.getVideoTracks()
+                    .length > 0
+            ) {
+
+                remoteVideo.classList.remove(
+                    "hidden"
+                );
+
+                remoteVideo.srcObject =
+                    remoteStream;
+
+            } else {
+
+                remoteAudio.srcObject =
+                    remoteStream;
+
+                remoteAudio
+                    .play()
+                    .catch(() => {});
+            }
         };
 
-        function playSound(type) {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                
-                if(type === 'message') {
-                    osc.frequency.setValueAtTime(800, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 0.1);
-                } else if(type === 'ring') {
-                    osc.frequency.setValueAtTime(440, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 0.4);
-                }
-            } catch(e) {}
-        }
 
-        function login() {
-            const input = document.getElementById('username-input').value.trim();
-            if(!input) return alert("يرجى إدخال اسم صحيح");
-            
-            if (window.Notification && Notification.permission !== "granted") {
-                Notification.requestPermission();
+    pc.onconnectionstatechange =
+        () => {
+
+            if (
+                pc.connectionState ===
+                "connected"
+            ) {
+
+                document
+                    .getElementById(
+                        "call-status-text"
+                    )
+                    .innerText =
+                    "المكالمة جارية...";
             }
 
-            socket.emit('verify_user', input);
-        }
+            if (
+                pc.connectionState ===
+                "failed"
+            ) {
 
-        socket.on('auth_success', (username) => {
-            myUsername = username;
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app-screen').classList.remove('hidden');
-            document.getElementById('my-username-display').innerText = username;
-            switchChat("الدردشة العامة");
-        });
-
-        socket.on('update_users', (data) => { usersData = data; renderChatsList(); });
-        socket.on('update_groups', (groups) => { groupsList = groups; renderChatsList(); });
-
-        function renderChatsList(filter = '') {
-            const list = document.getElementById('chats-list');
-            list.innerHTML = '';
-            
-            groupsList.forEach(g => {
-                if(g.includes(filter)) {
-                    list.innerHTML += `<div onclick="switchChat('${g}')" class="p-3 hover:bg-gray-100 cursor-pointer flex items-center justify-between ${currentChat === g ? 'bg-gray-100' : ''}">
-                        <span class="font-bold text-gray-800"><i class="fa-solid fa-users text-[#00a884] ml-2"></i> ${g}</span>
-                    </div>`;
-                }
-            });
-
-            for(let u in usersData) {
-                if(u !== myUsername && u.includes(filter)) {
-                    list.innerHTML += `<div onclick="switchChat('${u}')" class="p-3 hover:bg-gray-100 cursor-pointer flex items-center justify-between ${currentChat === u ? 'bg-gray-100' : ''}">
-                        <span class="font-bold text-gray-800"><i class="fa-solid fa-user text-gray-500 ml-2"></i> ${u}</span>
-                        <span class="text-xs text-green-600">${usersData[u].status}</span>
-                    </div>`;
-                }
+                document
+                    .getElementById(
+                        "call-status-text"
+                    )
+                    .innerText =
+                    "فشل الاتصال";
             }
+        };
+}
+
+
+// =====================================================
+// START CALL
+// =====================================================
+
+async function startCall(type) {
+
+    if (
+        groupsList.includes(
+            currentChat
+        )
+    ) {
+
+        alert(
+            "المكالمات الفردية متاحة للمستخدمين فقط."
+        );
+
+        return;
+    }
+
+
+    if (
+        !usersData[currentChat] ||
+        usersData[currentChat].status !==
+            "متصل"
+    ) {
+
+        alert(
+            "هذا المستخدم غير متصل."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        currentCallType =
+            type;
+
+        document
+            .getElementById(
+                "call-modal"
+            )
+            .classList.remove(
+                "hidden"
+            );
+
+        document
+            .getElementById(
+                "call-modal"
+            )
+            .classList.add(
+                "flex"
+            );
+
+        document
+            .getElementById(
+                "call-status-text"
+            )
+            .innerText =
+            "جاري الاتصال بـ " +
+            currentChat;
+
+
+        localStream =
+            await navigator.mediaDevices
+                .getUserMedia(
+                    {
+                        audio: true,
+                        video:
+                            type ===
+                            "video"
+                    }
+                );
+
+
+        if (type === "video") {
+
+            const localVideo =
+                document.getElementById(
+                    "localVideo"
+                );
+
+            localVideo.classList.remove(
+                "hidden"
+            );
+
+            localVideo.srcObject =
+                localStream;
         }
 
-        function filterChats() {
-            const query = document.getElementById('search-input').value.trim();
-            renderChatsList(query);
-        }
 
-        function switchChat(chatName) {
-            currentChat = chatName;
-            document.getElementById('current-chat-title').innerText = chatName;
-            document.getElementById('current-chat-status').innerText = usersData[chatName] ? usersData[chatName].status : 'مجموعة عامة';
-            renderMessages();
-            renderChatsList();
-        }
+        peerConnection =
+            new RTCPeerConnection(
+                rtcConfig
+            );
 
-        function createGroup() {
-            const gName = prompt("أدخل اسم المجموعة الجديدة:");
-            if(gName) socket.emit('create_group', gName);
-        }
 
-        function sendMessage() {
-            const text = document.getElementById('message-input').value.trim();
-            if(!text) return;
-            const msgData = { chat: currentChat, username: myUsername, type: 'text', text: text, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
-            socket.emit('send_message', msgData);
-            document.getElementById('message-input').value = '';
-        }
+        localStream
+            .getTracks()
+            .forEach(
+                track =>
+                    peerConnection.addTrack(
+                        track,
+                        localStream
+                    )
+            );
 
-        function sendImage(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onloadend = () => {
-                const msgData = { chat: currentChat, username: myUsername, type: 'image', content: reader.result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
-                socket.emit('send_message', msgData);
-            };
-        }
 
-        async function toggleVoiceRecording() {
-            const micBtn = document.getElementById('mic-btn');
-            if (!isRecording) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const reader = new FileReader();
-                        reader.readAsDataURL(audioBlob);
-                        reader.onloadend = () => {
-                            const msgData = { chat: currentChat, username: myUsername, type: 'audio', content: reader.result, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
-                            socket.emit('send_message', msgData);
-                        };
-                        stream.getTracks().forEach(t => t.stop());
-                    };
+        setupPeerConnectionEvents(
+            peerConnection
+        );
 
-                    mediaRecorder.start();
-                    isRecording = true;
-                    micBtn.classList.add('text-red-600', 'animate-pulse');
-                } catch(e) {
-                    alert("تعذر الوصول إلى المايكروفون!");
-                }
-            } else {
-                mediaRecorder.stop();
-                isRecording = false;
-                micBtn.classList.remove('text-red-600', 'animate-pulse');
-            }
-        }
 
-        function handleKeyPress(e) { if(e.key === 'Enter') sendMessage(); }
+        peerConnection.onicecandidate =
+            event => {
 
-        function notifyTyping() {
-            socket.emit('typing', { chat: currentChat, username: myUsername });
-        }
+                if (
+                    event.candidate
+                ) {
 
-        socket.on('display_typing', (data) => {
-            if(data.chat === currentChat && data.username !== myUsername) {
-                const indicator = document.getElementById('typing-indicator');
-                indicator.innerText = `${data.username} يكتب الآن...`;
-                indicator.classList.remove('hidden');
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => { indicator.classList.add('hidden'); }, 2000);
-            }
-        });
+                    socket.emit(
+                        "ice_candidate",
+                        {
+                            to:
+                                currentChat,
+                            candidate:
+                                event.candidate
+                        }
+                    );
 
-        socket.on('load_history', (msgs) => { allMessages = msgs; renderMessages(); });
-        socket.on('receive_message', (msg) => { 
-            allMessages.push(msg); 
-            renderMessages(); 
-            
-            if(msg.username !== myUsername) {
-                playSound('message');
-                
-                if (window.Notification && Notification.permission === "granted") {
-                    let bodyText = msg.type === 'text' ? msg.text : (msg.type === 'image' ? 'أرسل صورة' : 'أرسل تسجيل صوتي');
-                    new Notification(`رسالة جديدة من ${msg.username} (${msg.chat})`, {
-                        body: bodyText,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/733/733585.png'
-                    });
-                }
-            }
-        });
 
-        function renderMessages() {
-            const container = document.getElementById('messages-container');
-            container.innerHTML = '';
-            allMessages.filter(m => m.chat === currentChat).forEach(m => {
-                const isMe = m.username === myUsername;
-                let contentHtml = '';
-                if(m.type === 'audio') {
-                    contentHtml = `<audio controls class="w-48 h-10"><source src="${m.content}" type="audio/webm"></audio>`;
-                } else if(m.type === 'image') {
-                    contentHtml = `<img src="${m.content}" class="max-w-xs rounded-lg cursor-pointer" onclick="window.open(this.src)">`;
-                } else {
-                    contentHtml = `<div class="text-sm text-gray-800">${m.text}</div>`;
-                }
+                    if (
+                        event.candidate
+                            .type ===
+                        "relay"
+                    ) {
 
-                container.innerHTML += `
-                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
-                        <div class="max-w-xs px-4 py-2 rounded-lg shadow ${isMe ? 'bg-[#dcf8c6]' : 'bg-white'}">
-                            ${!isMe ? `<div class="text-xs font-bold text-blue-600 mb-1">${m.username}</div>` : ''}
-                            ${contentHtml}
-                            <div class="flex items-center justify-end space-x-1 space-x-reverse mt-1">
-                                <span class="text-[10px] text-gray-500">${m.time}</span>
-                                ${isMe ? '<span class="text-[10px] text-blue-500"><i class="fa-solid fa-check-double"></i></span>' : ''}
-                            </div>
-                        </div>
-                    </div>`;
-            });
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function setupPeerConnectionEvents(pc) {
-            pc.ontrack = event => {
-                remoteStream = event.streams[0];
-                if (remoteStream.getVideoTracks().length > 0) {
-                    const remoteVideo = document.getElementById('remoteVideo');
-                    remoteVideo.classList.remove('hidden');
-                    remoteVideo.srcObject = remoteStream;
-                } else {
-                    const remoteAudio = document.getElementById('remoteAudio');
-                    remoteAudio.srcObject = remoteStream;
-                    remoteAudio.play().catch(e => console.log("تعذر تشغيل الصوت تلقائياً:", e));
-                }
-            };
-        }
-
-        async function startCall(type) {
-            if(groupsList.includes(currentChat)) return alert("المكالمات الفردية متاحة مع المستخدمين فقط!");
-            document.getElementById('call-modal').classList.remove('hidden');
-            document.getElementById('call-status-text').innerText = "جاري الاتصال بـ " + currentChat;
-            document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
-
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
-            if(type === 'video') {
-                document.getElementById('localVideo').classList.remove('hidden');
-                document.getElementById('localVideo').srcObject = localStream;
-            }
-
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            setupPeerConnectionEvents(peerConnection);
-
-            peerConnection.onicecandidate = event => {
-                if(event.candidate) {
-                    socket.emit('ice_candidate', { to: currentChat, candidate: event.candidate });
-                    
-                    // إعلام السيرفر عند تفعيل خادم الـ TURN (نوع relay)
-                    if(event.candidate.type === 'relay') {
-                        socket.emit('turn_connection_active', { to: currentChat });
+                        socket.emit(
+                            "turn_connection_active",
+                            {
+                                to:
+                                    currentChat
+                            }
+                        );
                     }
                 }
             };
 
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('call_user', { to: currentChat, from: myUsername, offer: offer, type: type });
-        }
 
-        socket.on('incoming_call', (data) => {
-            incomingCallData = data;
-            playSound('ring');
-            document.getElementById('call-modal').classList.remove('hidden');
-            document.getElementById('call-status-text').innerHTML = `مكالمة واردة من <span class="font-bold text-[#00a884]">${data.from}</span>`;
-            document.getElementById('call-actions').innerHTML = `
-                <div class="flex justify-center space-x-4 space-x-reverse">
-                    <button onclick="acceptCall()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-green-700">قبول</button>
-                    <button onclick="rejectCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">رفض</button>
-                </div>
+        const offer =
+            await peerConnection
+                .createOffer();
+
+
+        await peerConnection
+            .setLocalDescription(
+                offer
+            );
+
+
+        socket.emit(
+            "call_user",
+            {
+                to:
+                    currentChat,
+                from:
+                    myUsername,
+                offer:
+                    offer,
+                type:
+                    type
+            }
+        );
+
+
+        startCallTimer();
+
+        renderCallControls();
+
+    } catch(error) {
+
+        console.error(error);
+
+        alert(
+            "تعذر تشغيل المايكروفون أو الكاميرا."
+        );
+
+        endCall();
+    }
+}
+
+
+// =====================================================
+// INCOMING CALL
+// =====================================================
+
+socket.on(
+    "incoming_call",
+    data => {
+
+        incomingCallData =
+            data;
+
+        playSound("ring");
+
+
+        document
+            .getElementById(
+                "call-modal"
+            )
+            .classList.remove(
+                "hidden"
+            );
+
+        document
+            .getElementById(
+                "call-modal"
+            )
+            .classList.add(
+                "flex"
+            );
+
+
+        document
+            .getElementById(
+                "call-status-text"
+            )
+            .innerHTML =
+
+            `
+                مكالمة واردة من
+                <strong class="text-[#25d366]">
+                    ${escapeHtml(data.from)}
+                </strong>
             `;
-        });
 
-        async function acceptCall() {
-            const data = incomingCallData;
-            if(!data) return;
-            
-            currentChat = data.from;
-            document.getElementById('call-status-text').innerText = "جاري الاتصال مع " + data.from;
-            document.getElementById('call-actions').innerHTML = `<button onclick="endCall()" class="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700">إنهاء المكالمة</button>`;
 
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: data.type === 'video' });
-            if(data.type === 'video') {
-                document.getElementById('localVideo').classList.remove('hidden');
-                document.getElementById('localVideo').srcObject = localStream;
-            }
+        document
+            .getElementById(
+                "call-actions"
+            )
+            .innerHTML = `
 
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                <button
+                    onclick="acceptCall()"
+                    class="w-14 h-14 rounded-full bg-green-500 hover:bg-green-600 text-white"
+                >
+                    <i class="fa-solid fa-phone"></i>
+                </button>
 
-            setupPeerConnectionEvents(peerConnection);
+                <button
+                    onclick="rejectCall()"
+                    class="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white"
+                >
+                    <i class="fa-solid fa-phone-slash"></i>
+                </button>
 
-            peerConnection.onicecandidate = event => {
-                if(event.candidate) {
-                    socket.emit('ice_candidate', { to: data.from, candidate: event.candidate });
-                    
-                    if(event.candidate.type === 'relay') {
-                        socket.emit('turn_connection_active', { to: data.from });
+            `;
+    }
+);
+
+
+// =====================================================
+// ACCEPT
+// =====================================================
+
+async function acceptCall() {
+
+    const data =
+        incomingCallData;
+
+    if (!data) return;
+
+
+    try {
+
+        currentChat =
+            data.from;
+
+        currentCallType =
+            data.type;
+
+
+        localStream =
+            await navigator.mediaDevices
+                .getUserMedia(
+                    {
+                        audio: true,
+                        video:
+                            data.type ===
+                            "video"
+                    }
+                );
+
+
+        if (
+            data.type ===
+            "video"
+        ) {
+
+            const localVideo =
+                document.getElementById(
+                    "localVideo"
+                );
+
+            localVideo.classList.remove(
+                "hidden"
+            );
+
+            localVideo.srcObject =
+                localStream;
+        }
+
+
+        peerConnection =
+            new RTCPeerConnection(
+                rtcConfig
+            );
+
+
+        localStream
+            .getTracks()
+            .forEach(
+                track =>
+                    peerConnection.addTrack(
+                        track,
+                        localStream
+                    )
+            );
+
+
+        setupPeerConnectionEvents(
+            peerConnection
+        );
+
+
+        peerConnection.onicecandidate =
+            event => {
+
+                if (
+                    event.candidate
+                ) {
+
+                    socket.emit(
+                        "ice_candidate",
+                        {
+                            to:
+                                data.from,
+                            candidate:
+                                event.candidate
+                        }
+                    );
+
+
+                    if (
+                        event.candidate
+                            .type ===
+                        "relay"
+                    ) {
+
+                        socket.emit(
+                            "turn_connection_active",
+                            {
+                                to:
+                                    data.from
+                            }
+                        );
                     }
                 }
             };
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('make_answer', { to: data.from, answer: answer, from: myUsername });
+
+        await peerConnection
+            .setRemoteDescription(
+                new RTCSessionDescription(
+                    data.offer
+                )
+            );
+
+
+        const answer =
+            await peerConnection
+                .createAnswer();
+
+
+        await peerConnection
+            .setLocalDescription(
+                answer
+            );
+
+
+        socket.emit(
+            "make_answer",
+            {
+                to:
+                    data.from,
+                answer:
+                    answer,
+                from:
+                    myUsername
+            }
+        );
+
+
+        document
+            .getElementById(
+                "call-status-text"
+            )
+            .innerText =
+            "المكالمة جارية...";
+
+
+        startCallTimer();
+
+        renderCallControls();
+
+        incomingCallData =
+            null;
+
+    } catch(error) {
+
+        console.error(error);
+
+        alert(
+            "تعذر قبول المكالمة."
+        );
+
+        endCall();
+    }
+}
+
+
+// =====================================================
+// ANSWER
+// =====================================================
+
+socket.on(
+    "call_answered",
+    async data => {
+
+        try {
+
+            if (!peerConnection)
+                return;
+
+            await peerConnection
+                .setRemoteDescription(
+                    new RTCSessionDescription(
+                        data.answer
+                    )
+                );
+
+            document
+                .getElementById(
+                    "call-status-text"
+                )
+                .innerText =
+                "المكالمة جارية...";
+
+        } catch(error) {
+
+            console.error(
+                "خطأ في المكالمة:",
+                error
+            );
+        }
+    }
+);
+
+
+// =====================================================
+// ICE
+// =====================================================
+
+socket.on(
+    "ice_candidate",
+    async data => {
+
+        if (
+            !peerConnection ||
+            !data.candidate
+        ) {
+            return;
         }
 
-        function rejectCall() {
-            endCall();
+        try {
+
+            await peerConnection
+                .addIceCandidate(
+                    new RTCIceCandidate(
+                        data.candidate
+                    )
+                );
+
+        } catch(e) {}
+    }
+);
+
+
+// =====================================================
+// TURN
+// =====================================================
+
+socket.on(
+    "show_turn_alert",
+    () => {
+
+        const status =
+            document.getElementById(
+                "call-status-text"
+            );
+
+        if (!status) return;
+
+        if (
+            status.innerHTML.includes(
+                "TURN"
+            )
+        ) {
+            return;
         }
 
-        socket.on('call_answered', async (data) => {
-            try {
-                if (peerConnection) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                    document.getElementById('call-status-text').innerText = "المكالمة جارية...";
-                }
-            } catch (e) {
-                console.error("خطأ في قبول المكالمة:", e);
-            }
-        });
+        status.innerHTML += `
 
-        socket.on('ice_candidate', async (data) => {
-            if (peerConnection && data.candidate) {
-                try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                } catch (e) {}
-            }
-        });
+            <div
+                class="text-xs text-green-400 mt-1"
+            >
+                ⚡ تم تفعيل اتصال TURN
+            </div>
 
-        // استقبال إنذار تفعيل خادم الـ TURN من السيرفر وعرضه للشاشتين
-        socket.on('show_turn_alert', () => {
-            const statusText = document.getElementById('call-status-text');
-            if(statusText && !statusText.innerHTML.includes("خادم الـ TURN")) {
-                statusText.innerHTML += `<br><span class="text-xs text-green-600 font-bold">⚡ تم تفعيل الاتصال عبر خادم الـ TURN بنجاح 🌐</span>`;
-            }
-        });
+        `;
+    }
+);
 
-        function endCall() {
-            if(localStream) localStream.getTracks().forEach(t => t.stop());
-            if(peerConnection) peerConnection.close();
-            document.getElementById('call-modal').classList.add('hidden');
-            document.getElementById('localVideo').classList.add('hidden');
-            document.getElementById('remoteVideo').classList.add('hidden');
-            incomingCallData = null;
+
+// =====================================================
+// CALL CONTROLS
+// =====================================================
+
+function renderCallControls() {
+
+    const actions =
+        document.getElementById(
+            "call-actions"
+        );
+
+
+    actions.innerHTML = `
+
+        <button
+            onclick="toggleCallMic()"
+            id="call-mic-button"
+            class="w-12 h-12 rounded-full bg-[#374045] hover:bg-[#4b595f]"
+            title="كتم المايك"
+        >
+            <i class="fa-solid fa-microphone"></i>
+        </button>
+
+
+        ${
+            currentCallType === "video"
+                ? `
+
+                    <button
+                        onclick="toggleCallCamera()"
+                        id="call-camera-button"
+                        class="w-12 h-12 rounded-full bg-[#374045] hover:bg-[#4b595f]"
+                        title="إيقاف الكاميرا"
+                    >
+                        <i class="fa-solid fa-video"></i>
+                    </button>
+
+                `
+                : ""
         }
-    </script>
+
+
+        <button
+            onclick="endCall()"
+            class="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700"
+            title="إنهاء المكالمة"
+        >
+            <i class="fa-solid fa-phone-slash"></i>
+        </button>
+
+    `;
+}
+
+
+function toggleCallMic() {
+
+    if (!localStream)
+        return;
+
+    const audioTracks =
+        localStream.getAudioTracks();
+
+    if (!audioTracks.length)
+        return;
+
+    micMuted =
+        !micMuted;
+
+    audioTracks.forEach(
+        track => {
+            track.enabled =
+                !micMuted;
+        }
+    );
+
+
+    const button =
+        document.getElementById(
+            "call-mic-button"
+        );
+
+    if (button) {
+
+        button.innerHTML =
+            micMuted
+                ? '<i class="fa-solid fa-microphone-slash"></i>'
+                : '<i class="fa-solid fa-microphone"></i>';
+    }
+}
+
+
+function toggleCallCamera() {
+
+    if (!localStream)
+        return;
+
+    const videoTracks =
+        localStream.getVideoTracks();
+
+    if (!videoTracks.length)
+        return;
+
+    cameraDisabled =
+        !cameraDisabled;
+
+    videoTracks.forEach(
+        track => {
+            track.enabled =
+                !cameraDisabled;
+        }
+    );
+
+
+    const button =
+        document.getElementById(
+            "call-camera-button"
+        );
+
+    if (button) {
+
+        button.innerHTML =
+            cameraDisabled
+                ? '<i class="fa-solid fa-video-slash"></i>'
+                : '<i class="fa-solid fa-video"></i>';
+    }
+}
+
+
+// =====================================================
+// CALL TIMER
+// =====================================================
+
+function startCallTimer() {
+
+    clearInterval(
+        callTimerInterval
+    );
+
+    callStartTime =
+        Date.now();
+
+    callTimerInterval =
+        setInterval(
+            () => {
+
+                const seconds =
+                    Math.floor(
+                        (
+                            Date.now() -
+                            callStartTime
+                        ) / 1000
+                    );
+
+                const minutes =
+                    Math.floor(
+                        seconds / 60
+                    );
+
+                const secs =
+                    seconds % 60;
+
+                document
+                    .getElementById(
+                        "call-timer"
+                    )
+                    .innerText =
+                    String(minutes)
+                        .padStart(2, "0") +
+                    ":" +
+                    String(secs)
+                        .padStart(2, "0");
+
+            },
+            1000
+        );
+}
+
+
+// =====================================================
+// REJECT
+// =====================================================
+
+function rejectCall() {
+
+    incomingCallData =
+        null;
+
+    endCall();
+}
+
+
+// =====================================================
+// END CALL
+// =====================================================
+
+function endCall() {
+
+    clearInterval(
+        callTimerInterval
+    );
+
+    callTimerInterval =
+        null;
+
+
+    if (localStream) {
+
+        localStream
+            .getTracks()
+            .forEach(
+                track =>
+                    track.stop()
+            );
+
+        localStream =
+            null;
+    }
+
+
+    if (peerConnection) {
+
+        peerConnection.close();
+
+        peerConnection =
+            null;
+    }
+
+
+    const remoteVideo =
+        document.getElementById(
+            "remoteVideo"
+        );
+
+    const localVideo =
+        document.getElementById(
+            "localVideo"
+        );
+
+    const remoteAudio =
+        document.getElementById(
+            "remoteAudio"
+        );
+
+
+    remoteVideo.srcObject =
+        null;
+
+    localVideo.srcObject =
+        null;
+
+    remoteAudio.srcObject =
+        null;
+
+
+    remoteVideo.classList.add(
+        "hidden"
+    );
+
+    localVideo.classList.add(
+        "hidden"
+    );
+
+
+    document
+        .getElementById(
+            "call-modal"
+        )
+        .classList.add(
+            "hidden"
+        );
+
+    document
+        .getElementById(
+            "call-modal"
+        )
+        .classList.remove(
+            "flex"
+        );
+
+
+    incomingCallData =
+        null;
+
+    micMuted =
+        false;
+
+    cameraDisabled =
+        false;
+
+    currentCallType =
+        null;
+}
+
+
+// =====================================================
+// LAST SEEN
+// =====================================================
+
+socket.on(
+    "user_last_seen",
+    data => {
+
+        if (
+            usersData[data.username]
+        ) {
+
+            usersData[
+                data.username
+            ].status =
+                "غير متصل";
+
+            usersData[
+                data.username
+            ].lastSeen =
+                data.lastSeen;
+        }
+
+        renderChatsList();
+
+        updateCurrentStatus();
+    }
+);
+
+
+// =====================================================
+// ERROR
+// =====================================================
+
+socket.on(
+    "message_error",
+    message => {
+
+        alert(message);
+    }
+);
+
+
+// =====================================================
+// TOAST
+// =====================================================
+
+function showToast(
+    message
+) {
+
+    const toast =
+        document.createElement(
+            "div"
+        );
+
+    toast.className =
+        "fixed bottom-5 left-1/2 -translate-x-1/2 bg-black text-white px-5 py-3 rounded-xl z-[99999] shadow-xl";
+
+    toast.innerText =
+        message;
+
+    document.body.appendChild(
+        toast
+    );
+
+    setTimeout(
+        () => toast.remove(),
+        2000
+    );
+}
+
+
+// =====================================================
+// ESCAPE HTML
+// =====================================================
+
+function escapeHtml(
+    text
+) {
+
+    if (
+        text === null ||
+        text === undefined
+    ) {
+        return "";
+    }
+
+    return String(text)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+}
+
+
+// =====================================================
+// SOCKET DISCONNECT
+// =====================================================
+
+socket.on(
+    "disconnect",
+    () => {
+
+        console.log(
+            "انقطع الاتصال بالسيرفر"
+        );
+    }
+);
+
+
+socket.on(
+    "connect",
+    () => {
+
+        console.log(
+            "تم الاتصال بالسيرفر"
+        );
+    }
+);
+
+</script>
+
 </body>
 </html>
+```
