@@ -1,165 +1,293 @@
-```js
 const express = require("express");
 const http = require("http");
+const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
-const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    maxHttpBufferSize: 50 * 1024 * 1024
+});
 
 const PORT = process.env.PORT || 8080;
 
-/*
-====================================================
-الملفات
-====================================================
-*/
+const DATA_FILE = path.join(__dirname, "data.json");
 
-const DATA_DIR = path.join(__dirname, "data");
+const MAX_CALL_PARTICIPANTS = 4;
 
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+app.use(express.static(__dirname));
+
+
+/* =========================================================
+   DATA
+========================================================= */
+
+let database = {
+    users: {},
+    messages: [],
+    groups: [
+        {
+            id: "general",
+            name: "الدردشة العامة",
+            owner: "system",
+            members: []
+        }
+    ]
+};
+
+
+function loadDatabase() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const content = fs.readFileSync(DATA_FILE, "utf8");
+
+            if (content.trim()) {
+                const saved = JSON.parse(content);
+
+                database = {
+                    users: saved.users || {},
+                    messages: saved.messages || [],
+                    groups: saved.groups || [
+                        {
+                            id: "general",
+                            name: "الدردشة العامة",
+                            owner: "system",
+                            members: []
+                        }
+                    ]
+                };
+            }
+        }
+    } catch (error) {
+        console.error("خطأ بقراءة data.json:", error);
+    }
 }
 
-const USERS_FILE = path.join(DATA_DIR, "users.json");
-const MESSAGES_FILE = path.join(DATA_DIR, "messages.json");
-const GROUPS_FILE = path.join(DATA_DIR, "groups.json");
 
-/*
-====================================================
-قراءة / حفظ البيانات
-====================================================
-*/
+let saveTimer = null;
 
-function loadJSON(file, fallback) {
-    try {
-        if (!fs.existsSync(file)) {
+function saveDatabase() {
+    if (saveTimer) return;
+
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+
+        try {
+            const tempFile = DATA_FILE + ".tmp";
+
             fs.writeFileSync(
-                file,
-                JSON.stringify(fallback, null, 2),
+                tempFile,
+                JSON.stringify(database, null, 2),
                 "utf8"
             );
 
-            return fallback;
+            fs.renameSync(tempFile, DATA_FILE);
+
+        } catch (error) {
+            console.error("خطأ بحفظ البيانات:", error);
         }
-
-        return JSON.parse(
-            fs.readFileSync(file, "utf8")
-        );
-
-    } catch (error) {
-        console.error("خطأ بقراءة:", file, error);
-        return fallback;
-    }
+    }, 300);
 }
 
-function saveJSON(file, data) {
-    try {
-        fs.writeFileSync(
-            file,
-            JSON.stringify(data, null, 2),
-            "utf8"
-        );
-    } catch (error) {
-        console.error("خطأ بالحفظ:", file, error);
-    }
-}
 
-/*
-====================================================
-البيانات
-====================================================
-*/
+loadDatabase();
 
-const accounts = loadJSON(USERS_FILE, {});
-const messages = loadJSON(MESSAGES_FILE, []);
 
-const groups = loadJSON(
-    GROUPS_FILE,
-    ["الدردشة العامة"]
-);
-
-/*
-====================================================
-المستخدمون المتصلون
-====================================================
-*/
+/* =========================================================
+   ONLINE USERS
+========================================================= */
 
 const onlineUsers = {};
 
-/*
-====================================================
-AI
-====================================================
-*/
 
 /*
-ضع مفتاح الذكاء الاصطناعي في Environment Variable:
-
-Windows CMD:
-set OPENAI_API_KEY=YOUR_KEY
-
-PowerShell:
-$env:OPENAI_API_KEY="YOUR_KEY"
-
-ولا تضع المفتاح داخل index.html.
+    onlineUsers = {
+        username: {
+            socketId: "...",
+            lastSeen: ...
+        }
+    }
 */
 
-const OPENAI_API_KEY =
-    process.env.OPENAI_API_KEY || "";
 
-const AI_MODEL =
-    process.env.OPENAI_MODEL ||
-    "gpt-5.6-luna";
+function getPublicUsers() {
+    const result = {};
+
+    for (const username in database.users) {
+        const user = database.users[username];
+
+        result[username] = {
+            status: onlineUsers[username]
+                ? "متصل"
+                : "غير متصل",
+
+            lastSeen: user.lastSeen || null,
+
+            createdAt: user.createdAt || null
+        };
+    }
+
+    return result;
+}
 
 
-/*
-====================================================
-Express
-====================================================
-*/
-
-app.use(express.json({ limit: "12mb" }));
-
-app.use(
-    express.static(__dirname)
-);
+function getGroups() {
+    return database.groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        owner: group.owner,
+        members: group.members || []
+    }));
+}
 
 
-/*
-====================================================
-Socket.IO
-====================================================
-*/
+function findSocketByUsername(username) {
+    const user = onlineUsers[username];
 
-io.on("connection", (socket) => {
+    if (!user) return null;
 
-    console.log(
-        "اتصال جديد:",
-        socket.id
+    return user.socketId;
+}
+
+
+function sendToUser(username, event, data) {
+    const socketId = findSocketByUsername(username);
+
+    if (!socketId) return false;
+
+    io.to(socketId).emit(event, data);
+
+    return true;
+}
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function cleanUsername(name) {
+    if (typeof name !== "string") return "";
+
+    return name
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 30);
+}
+
+
+function generateId(prefix = "id") {
+    return (
+        prefix +
+        "_" +
+        Date.now() +
+        "_" +
+        Math.random()
+            .toString(36)
+            .slice(2, 10)
     );
+}
 
 
-    /*
-    ================================================
-    تسجيل الدخول
-    ================================================
-    */
+function isGroup(chatId) {
+    return database.groups.some(group =>
+        group.id === chatId
+    );
+}
 
-    socket.on("verify_user", (username) => {
 
-        username =
-            String(username || "")
-                .trim()
-                .slice(0, 30);
+function findGroup(groupId) {
+    return database.groups.find(group =>
+        group.id === groupId
+    );
+}
+
+
+function isUser(username) {
+    return !!database.users[username];
+}
+
+
+function messageBelongsToUser(message, username) {
+    return (
+        message.username === username ||
+        message.from === username ||
+        message.to === username
+    );
+}
+
+
+/* =========================================================
+   API
+========================================================= */
+
+app.get("/api/status", (req, res) => {
+    res.json({
+        ok: true,
+        developer: "محمد حسنين",
+        users: Object.keys(database.users).length,
+        online: Object.keys(onlineUsers).length,
+        groups: database.groups.length,
+        maxCallParticipants: MAX_CALL_PARTICIPANTS
+    });
+});
+
+
+app.get("/api/account/:username", (req, res) => {
+
+    const username =
+        cleanUsername(req.params.username);
+
+    if (!username || !database.users[username]) {
+        return res.status(404).json({
+            ok: false,
+            error: "الحساب غير موجود"
+        });
+    }
+
+    const user = database.users[username];
+
+    res.json({
+        ok: true,
+        user: {
+            username: username,
+            createdAt: user.createdAt,
+            lastSeen: user.lastSeen || null,
+            online: !!onlineUsers[username]
+        }
+    });
+});
+
+
+/* =========================================================
+   SOCKET CONNECTION
+========================================================= */
+
+io.on("connection", socket => {
+
+    console.log("Connected:", socket.id);
+
+
+    /* =====================================================
+       LOGIN / ACCOUNT
+    ===================================================== */
+
+    socket.on("verify_user", username => {
+
+        username = cleanUsername(username);
 
         if (!username) {
+            socket.emit("auth_error", "اكتب اسم المستخدم");
+            return;
+        }
 
+        if (username.length < 2) {
             socket.emit(
                 "auth_error",
-                "اكتب اسم مستخدم."
+                "اسم المستخدم يجب أن يكون حرفين على الأقل"
             );
 
             return;
@@ -167,504 +295,1038 @@ io.on("connection", (socket) => {
 
 
         /*
-        إذا الحساب موجود نخليه يدخل.
-        إذا جديد ننشئ حساب.
-        */
-
-        if (!accounts[username]) {
-
-            accounts[username] = {
-
-                username: username,
-
-                createdAt:
-                    new Date().toISOString(),
-
-                lastSeen:
-                    new Date().toISOString()
-
-            };
-
-            saveJSON(
-                USERS_FILE,
-                accounts
-            );
-        }
-
-
-        /*
-        إذا الاسم مستخدم حالياً
-        نرفض الاتصال الثاني.
+            إذا الحساب مفتوح من مكان آخر:
+            نغلق الجلسة القديمة.
         */
 
         if (
             onlineUsers[username] &&
-            onlineUsers[username].id !== socket.id
+            onlineUsers[username].socketId !== socket.id
         ) {
 
-            socket.emit(
-                "auth_error",
-                "هذا الاسم مستخدم حالياً."
-            );
+            const oldSocket =
+                io.sockets.sockets.get(
+                    onlineUsers[username].socketId
+                );
 
-            return;
+            if (oldSocket) {
+                oldSocket.emit(
+                    "account_logged_elsewhere"
+                );
+
+                oldSocket.disconnect(true);
+            }
+
+            delete onlineUsers[username];
         }
 
 
-        socket.username =
-            username;
+        const now = Date.now();
+
+
+        if (!database.users[username]) {
+
+            database.users[username] = {
+                username: username,
+                createdAt: now,
+                lastSeen: now
+            };
+
+            saveDatabase();
+
+            socket.emit("account_created", {
+                username: username
+            });
+
+        } else {
+
+            socket.emit("account_existing", {
+                username: username
+            });
+
+        }
+
+
+        database.users[username].lastSeen = now;
+
+
+        socket.username = username;
 
 
         onlineUsers[username] = {
-
-            id: socket.id,
-
-            status: "متصل",
-
-            lastSeen:
-                new Date().toISOString()
-
+            socketId: socket.id,
+            lastSeen: now
         };
 
 
-        socket.emit(
-            "auth_success",
-            username
-        );
+        socket.join("user:" + username);
+
+
+        socket.emit("auth_success", username);
+
+
+        /*
+            إرسال البيانات المحفوظة للمستخدم
+        */
+
+        const userMessages =
+            database.messages.filter(message => {
+
+                if (message.chatType === "group") {
+                    return true;
+                }
+
+                return (
+                    message.username === username ||
+                    message.from === username ||
+                    message.to === username
+                );
+            });
 
 
         socket.emit(
             "load_history",
-            messages
+            userMessages
+        );
+
+
+        socket.emit(
+            "update_users",
+            getPublicUsers()
+        );
+
+
+        socket.emit(
+            "update_groups",
+            getGroups()
         );
 
 
         io.emit(
             "update_users",
-            onlineUsers
+            getPublicUsers()
+        );
+
+
+        console.log(
+            username + " logged in"
+        );
+    });
+
+
+    /* =====================================================
+       LOGOUT
+    ===================================================== */
+
+    socket.on("logout", () => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        if (onlineUsers[username]) {
+            delete onlineUsers[username];
+        }
+
+
+        if (database.users[username]) {
+            database.users[username].lastSeen =
+                Date.now();
+
+            saveDatabase();
+        }
+
+
+        socket.emit("logout_success");
+
+
+        io.emit(
+            "update_users",
+            getPublicUsers()
+        );
+
+
+        socket.username = null;
+    });
+
+
+    /* =====================================================
+       CREATE GROUP
+    ===================================================== */
+
+    socket.on("create_group", groupName => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        groupName =
+            cleanUsername(groupName);
+
+
+        if (!groupName) return;
+
+
+        if (
+            database.groups.some(
+                group =>
+                    group.name === groupName
+            )
+        ) {
+
+            socket.emit(
+                "server_error",
+                "هذه المجموعة موجودة بالفعل"
+            );
+
+            return;
+        }
+
+
+        const group = {
+            id: generateId("group"),
+            name: groupName,
+            owner: username,
+            members: [username]
+        };
+
+
+        database.groups.push(group);
+
+        saveDatabase();
+
+
+        io.emit(
+            "update_groups",
+            getGroups()
+        );
+    });
+
+
+    /* =====================================================
+       JOIN GROUP
+    ===================================================== */
+
+    socket.on("join_group", groupId => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const group =
+            findGroup(groupId);
+
+        if (!group) return;
+
+
+        if (!group.members.includes(username)) {
+            group.members.push(username);
+        }
+
+
+        saveDatabase();
+
+
+        socket.emit(
+            "update_groups",
+            getGroups()
         );
 
 
         io.emit(
             "update_groups",
-            groups
+            getGroups()
         );
-
     });
 
 
-    /*
-    ================================================
-    الرسائل
-    ================================================
-    */
+    /* =====================================================
+       SEND MESSAGE
+    ===================================================== */
 
-    socket.on(
-        "send_message",
-        (data) => {
+    socket.on("send_message", msg => {
 
-            if (!socket.username)
-                return;
+        const username = socket.username;
 
+        if (!username) return;
 
-            const message = {
-
-                id:
-                    Date.now().toString() +
-                    "-" +
-                    Math.random()
-                        .toString(36)
-                        .slice(2),
-
-                chat:
-                    data.chat ||
-                    "الدردشة العامة",
-
-                username:
-                    socket.username,
-
-                type:
-                    data.type ||
-                    "text",
-
-                text:
-                    data.text ||
-                    "",
-
-                content:
-                    data.content ||
-                    "",
-
-                fileName:
-                    data.fileName ||
-                    "",
-
-                time:
-                    new Date()
-                        .toLocaleTimeString(
-                            "ar-IQ",
-                            {
-                                hour: "2-digit",
-                                minute: "2-digit"
-                            }
-                        ),
-
-                status:
-                    "sent",
-
-                createdAt:
-                    new Date().toISOString()
-
-            };
+        if (!msg || typeof msg !== "object") {
+            return;
+        }
 
 
-            messages.push(message);
+        const chat =
+            typeof msg.chat === "string"
+                ? msg.chat
+                : "";
+
+
+        if (!chat) return;
+
+
+        const type =
+            typeof msg.type === "string"
+                ? msg.type
+                : "text";
+
+
+        const message = {
+
+            id: generateId("msg"),
+
+            chat: chat,
+
+            chatType:
+                isGroup(chat)
+                    ? "group"
+                    : "private",
+
+            username: username,
+
+            from: username,
+
+            to:
+                isGroup(chat)
+                    ? null
+                    : chat,
+
+            type: type,
+
+            text:
+                typeof msg.text === "string"
+                    ? msg.text.slice(0, 10000)
+                    : "",
+
+            content:
+                typeof msg.content === "string"
+                    ? msg.content
+                    : null,
+
+            fileName:
+                typeof msg.fileName === "string"
+                    ? msg.fileName.slice(0, 200)
+                    : null,
+
+            time:
+                msg.time ||
+                new Date().toLocaleTimeString(
+                    "ar-IQ",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }
+                ),
+
+            createdAt: Date.now()
+        };
+
+
+        /*
+            للمجموعات
+        */
+
+        if (isGroup(chat)) {
+
+            const group =
+                findGroup(chat);
+
+            if (!group) return;
+
+
+            database.messages.push(message);
+
+            saveDatabase();
 
 
             /*
-            لا نخلي ملف الرسائل يكبر بلا نهاية.
+                أرسل لأعضاء المجموعة المتصلين
             */
 
-            if (messages.length > 5000) {
+            group.members.forEach(member => {
 
-                messages.splice(
-                    0,
-                    messages.length - 5000
+                sendToUser(
+                    member,
+                    "receive_message",
+                    message
                 );
 
-            }
+            });
 
 
-            saveJSON(
-                MESSAGES_FILE,
-                messages
-            );
+            return;
+        }
 
 
-            io.emit(
+        /*
+            محادثة خاصة
+        */
+
+        database.messages.push(message);
+
+        saveDatabase();
+
+
+        /*
+            المرسل
+        */
+
+        socket.emit(
+            "receive_message",
+            message
+        );
+
+
+        /*
+            المستقبل
+        */
+
+        if (chat !== username) {
+
+            sendToUser(
+                chat,
                 "receive_message",
                 message
             );
 
-        }
-    );
-
-
-    /*
-    ================================================
-    تعديل رسالة
-    ================================================
-    */
-
-    socket.on(
-        "edit_message",
-        (data) => {
-
-            const message =
-                messages.find(
-                    m =>
-                        m.id ===
-                        data.messageId
-                );
-
-
-            if (!message)
-                return;
-
-
-            if (
-                message.username !==
-                socket.username
-            )
-                return;
-
-
-            message.text =
-                String(data.text || "")
-                    .trim();
-
-
-            message.edited =
-                true;
-
-
-            saveJSON(
-                MESSAGES_FILE,
-                messages
-            );
-
-
-            io.emit(
-                "message_edited",
-                message
+            sendToUser(
+                chat,
+                "message_notification",
+                {
+                    from: username,
+                    message: message
+                }
             );
 
         }
-    );
+    });
 
 
-    /*
-    ================================================
-    حذف رسالة
-    ================================================
-    */
+    /* =====================================================
+       EDIT MESSAGE
+    ===================================================== */
 
-    socket.on(
-        "delete_message",
-        (data) => {
+    socket.on("edit_message", data => {
 
-            const index =
-                messages.findIndex(
-                    m =>
-                        m.id ===
-                        data.messageId
-                );
+        const username = socket.username;
+
+        if (!username) return;
 
 
-            if (index === -1)
-                return;
-
-
-            if (
-                messages[index].username !==
-                socket.username
-            )
-                return;
-
-
-            const id =
-                messages[index].id;
-
-
-            messages.splice(
-                index,
-                1
+        const message =
+            database.messages.find(
+                item =>
+                    item.id === data.id
             );
 
 
-            saveJSON(
-                MESSAGES_FILE,
-                messages
-            );
+        if (!message) return;
 
 
-            io.emit(
-                "message_deleted",
-                id
-            );
-
+        if (message.username !== username) {
+            return;
         }
-    );
 
 
-    /*
-    ================================================
-    الكتابة
-    ================================================
-    */
+        message.text =
+            String(data.text || "")
+                .slice(0, 10000);
 
-    socket.on(
-        "typing",
-        (data) => {
 
-            socket.broadcast.emit(
+        message.edited = true;
+
+
+        saveDatabase();
+
+
+        /*
+            تحديث المرسل
+        */
+
+        io.emit(
+            "message_edited",
+            message
+        );
+    });
+
+
+    /* =====================================================
+       DELETE MESSAGE
+    ===================================================== */
+
+    socket.on("delete_message", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const index =
+            database.messages.findIndex(
+                item =>
+                    item.id === data.id
+            );
+
+
+        if (index === -1) return;
+
+
+        const message =
+            database.messages[index];
+
+
+        if (message.username !== username) {
+            return;
+        }
+
+
+        database.messages.splice(index, 1);
+
+        saveDatabase();
+
+
+        io.emit(
+            "message_deleted",
+            {
+                id: message.id
+            }
+        );
+    });
+
+
+    /* =====================================================
+       TYPING
+    ===================================================== */
+
+    socket.on("typing", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        if (!data || !data.chat) return;
+
+
+        if (isGroup(data.chat)) {
+
+            const group =
+                findGroup(data.chat);
+
+            if (!group) return;
+
+
+            group.members.forEach(member => {
+
+                if (member !== username) {
+
+                    sendToUser(
+                        member,
+                        "display_typing",
+                        {
+                            chat: data.chat,
+                            username: username
+                        }
+                    );
+
+                }
+
+            });
+
+
+        } else {
+
+            sendToUser(
+                data.chat,
                 "display_typing",
                 {
-                    chat:
-                        data.chat,
-
-                    username:
-                        socket.username
+                    chat: data.chat,
+                    username: username
                 }
             );
 
         }
-    );
+    });
 
 
-    /*
-    ================================================
-    إنشاء مجموعة
-    ================================================
-    */
+    /* =====================================================
+       READ MESSAGE
+    ===================================================== */
 
-    socket.on(
-        "create_group",
-        (data) => {
+    socket.on("message_read", data => {
 
-            const name =
-                typeof data === "string"
-                    ? data
-                    : data?.name;
+        const username = socket.username;
 
+        if (!username) return;
 
-            if (!name)
-                return;
+        const message =
+            database.messages.find(
+                m => m.id === data.id
+            );
+
+        if (!message) return;
 
 
-            const cleanName =
-                String(name)
-                    .trim()
-                    .slice(0, 50);
+        if (!message.readBy) {
+            message.readBy = [];
+        }
 
 
-            if (!cleanName)
-                return;
+        if (!message.readBy.includes(username)) {
 
+            message.readBy.push(username);
+
+            saveDatabase();
+        }
+
+
+        if (message.username !== username) {
+
+            sendToUser(
+                message.username,
+                "message_read_update",
+                {
+                    id: message.id,
+                    by: username
+                }
+            );
+
+        }
+
+    });
+
+
+    /* =====================================================
+       CALL: INDIVIDUAL
+    ===================================================== */
+
+    socket.on("call_user", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        const target =
+            cleanUsername(data.to);
+
+        if (!target) return;
+
+
+        if (!isUser(target)) {
+
+            socket.emit(
+                "call_error",
+                "المستخدم غير موجود"
+            );
+
+            return;
+        }
+
+
+        if (!onlineUsers[target]) {
+
+            socket.emit(
+                "call_error",
+                "المستخدم غير متصل"
+            );
+
+            return;
+        }
+
+
+        sendToUser(
+            target,
+            "incoming_call",
+            {
+                from: from,
+                offer: data.offer,
+                type: data.type,
+                callId: data.callId || generateId("call")
+            }
+        );
+    });
+
+
+    /* =====================================================
+       CALL ANSWER
+    ===================================================== */
+
+    socket.on("make_answer", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        sendToUser(
+            data.to,
+            "call_answered",
+            {
+                answer: data.answer,
+                from: from
+            }
+        );
+    });
+
+
+    /* =====================================================
+       ICE
+    ===================================================== */
+
+    socket.on("ice_candidate", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        sendToUser(
+            data.to,
+            "ice_candidate",
+            {
+                candidate: data.candidate,
+                from: from
+            }
+        );
+    });
+
+
+    /* =====================================================
+       CALL ROOM
+    ===================================================== */
+
+    socket.on("create_call_room", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const roomId =
+            generateId("room");
+
+
+        const participants = [
+            username
+        ];
+
+
+        socket.join("call:" + roomId);
+
+
+        socket.callRoom = roomId;
+
+
+        socket.callParticipants =
+            participants;
+
+
+        socket.emit(
+            "call_room_created",
+            {
+                roomId: roomId,
+                participants: participants,
+                maxParticipants:
+                    MAX_CALL_PARTICIPANTS
+            }
+        );
+    });
+
+
+    /* =====================================================
+       INVITE INTO CALL ROOM
+    ===================================================== */
+
+    socket.on("invite_to_call", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        const roomId =
+            data.roomId;
+
+        const target =
+            cleanUsername(data.to);
+
+
+        if (!roomId || !target) return;
+
+
+        /*
+            اجلب sockets الموجودة داخل الغرفة
+        */
+
+        const room =
+            io.sockets.adapter.rooms.get(
+                "call:" + roomId
+            );
+
+
+        const count =
+            room
+                ? room.size
+                : 0;
+
+
+        if (count >= MAX_CALL_PARTICIPANTS) {
+
+            socket.emit(
+                "call_error",
+                "المكالمة وصلت للحد الأقصى: 4 أشخاص"
+            );
+
+            return;
+        }
+
+
+        if (!onlineUsers[target]) {
+
+            socket.emit(
+                "call_error",
+                "المستخدم غير متصل"
+            );
+
+            return;
+        }
+
+
+        sendToUser(
+            target,
+            "call_invitation",
+            {
+                roomId: roomId,
+                from: from,
+                participants:
+                    getCallParticipants(roomId)
+            }
+        );
+    });
+
+
+    /* =====================================================
+       GET CALL PARTICIPANTS
+    ===================================================== */
+
+    function getCallParticipants(roomId) {
+
+        const room =
+            io.sockets.adapter.rooms.get(
+                "call:" + roomId
+            );
+
+
+        if (!room) return [];
+
+
+        const result = [];
+
+
+        room.forEach(socketId => {
+
+            const s =
+                io.sockets.sockets.get(socketId);
 
             if (
-                groups.includes(
-                    cleanName
-                )
+                s &&
+                s.username
             ) {
 
-                socket.emit(
-                    "group_error",
-                    "هذه المجموعة موجودة."
+                result.push(
+                    s.username
                 );
 
-                return;
             }
 
+        });
 
-            groups.push(
-                cleanName
+
+        return result;
+    }
+
+
+    /* =====================================================
+       JOIN CALL ROOM
+    ===================================================== */
+
+    socket.on("join_call_room", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const roomId =
+            data.roomId;
+
+        if (!roomId) return;
+
+
+        const roomName =
+            "call:" + roomId;
+
+
+        const room =
+            io.sockets.adapter.rooms.get(
+                roomName
             );
 
 
-            saveJSON(
-                GROUPS_FILE,
-                groups
+        const count =
+            room
+                ? room.size
+                : 0;
+
+
+        if (count >= MAX_CALL_PARTICIPANTS) {
+
+            socket.emit(
+                "call_room_full"
             );
 
-
-            io.emit(
-                "update_groups",
-                groups
-            );
-
+            return;
         }
-    );
 
 
-    /*
-    ================================================
-    مكالمات فردية
-    ================================================
-    */
-
-    socket.on(
-        "call_user",
-        (data) => {
-
-            if (!socket.username)
-                return;
+        socket.join(roomName);
 
 
-            const target =
-                onlineUsers[data.to];
+        socket.callRoom = roomId;
 
 
-            if (!target)
-                return;
+        const participants =
+            getCallParticipants(roomId);
 
 
-            io.to(target.id).emit(
-                "incoming_call",
-                {
-
-                    from:
-                        socket.username,
-
-                    offer:
-                        data.offer,
-
-                    type:
-                        data.type ||
-                        "audio"
-
-                }
-            );
-
-        }
-    );
+        socket.emit(
+            "call_room_joined",
+            {
+                roomId: roomId,
+                participants: participants
+            }
+        );
 
 
-    socket.on(
-        "make_answer",
-        (data) => {
-
-            const target =
-                onlineUsers[data.to];
-
-
-            if (!target)
-                return;
+        socket.to(roomName).emit(
+            "call_participant_joined",
+            {
+                username: username
+            }
+        );
+    });
 
 
-            io.to(target.id).emit(
-                "call_answered",
-                {
+    /* =====================================================
+       CALL SIGNALING
+    ===================================================== */
 
-                    from:
-                        socket.username,
+    socket.on("call_signal", data => {
 
-                    answer:
-                        data.answer
+        const from = socket.username;
 
-                }
-            );
-
-        }
-    );
+        if (!from) return;
 
 
-    socket.on(
-        "ice_candidate",
-        (data) => {
-
-            const target =
-                onlineUsers[data.to];
+        if (!data.roomId) return;
 
 
-            if (!target)
-                return;
+        socket.to(
+            "call:" + data.roomId
+        ).emit(
+            "call_signal",
+            {
+                from: from,
+                type: data.type,
+                data: data.data
+            }
+        );
+    });
 
 
-            io.to(target.id).emit(
-                "ice_candidate",
-                {
+    /* =====================================================
+       LEAVE CALL ROOM
+    ===================================================== */
 
-                    from:
-                        socket.username,
+    socket.on("leave_call_room", data => {
 
-                    candidate:
-                        data.candidate
+        const username = socket.username;
 
-                }
-            );
-
-        }
-    );
+        if (!username) return;
 
 
-    /*
-    ================================================
-    TURN
-    ================================================
-    */
+        const roomId =
+            data.roomId ||
+            socket.callRoom;
+
+
+        if (!roomId) return;
+
+
+        const roomName =
+            "call:" + roomId;
+
+
+        socket.leave(roomName);
+
+
+        socket.to(roomName).emit(
+            "call_participant_left",
+            {
+                username: username
+            }
+        );
+
+
+        socket.callRoom = null;
+    });
+
+
+    /* =====================================================
+       CALL RING
+    ===================================================== */
+
+    socket.on("ring_call", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        if (!data.to) return;
+
+
+        sendToUser(
+            data.to,
+            "call_ring",
+            {
+                from: from
+            }
+        );
+    });
+
+
+    /* =====================================================
+       TURN ALERT
+    ===================================================== */
 
     socket.on(
         "turn_connection_active",
-        (data) => {
+        data => {
 
-            const target =
-                onlineUsers[data.to];
+            const from =
+                socket.username;
+
+            if (!from) return;
 
 
-            if (target) {
+            if (data.to) {
 
-                io.to(target.id).emit(
+                sendToUser(
+                    data.to,
                     "show_turn_alert"
                 );
 
@@ -674,525 +1336,107 @@ io.on("connection", (socket) => {
             socket.emit(
                 "show_turn_alert"
             );
-
         }
     );
 
 
-    /*
-    ================================================
-    دعوة للمكالمة الجماعية
-    ================================================
-    */
+    /* =====================================================
+       DISCONNECT
+    ===================================================== */
 
-    socket.on(
-        "invite_to_call",
-        (data) => {
+    socket.on("disconnect", () => {
 
-            const target =
-                onlineUsers[data.to];
+        const username =
+            socket.username;
 
 
-            if (!target)
-                return;
+        if (!username) return;
 
 
-            io.to(target.id).emit(
-                "call_invite",
-                {
+        /*
+            إذا نفس الجلسة
+        */
 
-                    from:
-                        socket.username,
+        if (
+            onlineUsers[username] &&
+            onlineUsers[username].socketId === socket.id
+        ) {
 
-                    participants:
-                        data.participants ||
-                        [],
-
-                    type:
-                        data.type ||
-                        "audio"
-
-                }
-            );
-
-        }
-    );
+            delete onlineUsers[username];
 
 
-    socket.on(
-        "join_group_call",
-        (data) => {
+            if (database.users[username]) {
+
+                database.users[username].lastSeen =
+                    Date.now();
+
+                saveDatabase();
+            }
+
+
+            /*
+                إذا داخل مكالمة
+            */
+
+            if (socket.callRoom) {
+
+                socket.to(
+                    "call:" + socket.callRoom
+                ).emit(
+                    "call_participant_left",
+                    {
+                        username: username
+                    }
+                );
+
+            }
+
 
             io.emit(
-                "group_call_participant_joined",
-                {
-
-                    participants:
-                        data.participants ||
-                        []
-
-                }
+                "update_users",
+                getPublicUsers()
             );
 
         }
-    );
 
 
-    socket.on(
-        "call_mic_status",
-        (data) => {
-
-            for (
-                const username
-                of data.participants || []
-            ) {
-
-                const target =
-                    onlineUsers[username];
-
-
-                if (
-                    target &&
-                    username !== socket.username
-                ) {
-
-                    io.to(target.id).emit(
-                        "participant_mic_status",
-                        {
-
-                            username:
-                                socket.username,
-
-                            muted:
-                                !!data.muted
-
-                        }
-                    );
-
-                }
-
-            }
-
-        }
-    );
-
-
-    socket.on(
-        "call_camera_status",
-        (data) => {
-
-            for (
-                const username
-                of data.participants || []
-            ) {
-
-                const target =
-                    onlineUsers[username];
-
-
-                if (
-                    target &&
-                    username !== socket.username
-                ) {
-
-                    io.to(target.id).emit(
-                        "participant_camera_status",
-                        {
-
-                            username:
-                                socket.username,
-
-                            enabled:
-                                !!data.enabled
-
-                        }
-                    );
-
-                }
-
-            }
-
-        }
-    );
-
-
-    socket.on(
-        "end_call",
-        (data) => {
-
-            for (
-                const username
-                of data.participants || []
-            ) {
-
-                const target =
-                    onlineUsers[username];
-
-
-                if (
-                    target &&
-                    username !== socket.username
-                ) {
-
-                    io.to(target.id).emit(
-                        "call_ended"
-                    );
-
-                }
-
-            }
-
-        }
-    );
-
-
-    /*
-    ================================================
-    AI CHAT
-    ================================================
-    */
-
-    socket.on(
-        "ai_message",
-        async (data) => {
-
-            if (!socket.username)
-                return;
-
-
-            const text =
-                String(data.text || "")
-                    .trim();
-
-
-            if (!text)
-                return;
-
-
-            if (!OPENAI_API_KEY) {
-
-                socket.emit(
-                    "ai_error",
-                    "مفتاح الذكاء الاصطناعي غير موجود في السيرفر."
-                );
-
-                return;
-            }
-
-
-            /*
-            نأخذ آخر رسائل AI فقط
-            حتى لا يكبر الطلب بلا نهاية.
-            */
-
-            let history =
-                Array.isArray(
-                    data.history
-                )
-                ? data.history
-                : [];
-
-
-            history =
-                history
-                    .slice(-12)
-                    .map(item => {
-
-                        return {
-
-                            role:
-                                item.role === "assistant"
-                                    ? "assistant"
-                                    : "user",
-
-                            content:
-                                String(
-                                    item.content || ""
-                                )
-
-                        };
-
-                    });
-
-
-            /*
-            نضيف رسالة المستخدم الحالية
-            */
-
-            history.push({
-
-                role: "user",
-
-                content: text
-
-            });
-
-
-            try {
-
-                socket.emit(
-                    "ai_status",
-                    "جاري التفكير..."
-                );
-
-
-                const response =
-                    await fetch(
-                        "https://api.openai.com/v1/responses",
-                        {
-
-                            method: "POST",
-
-                            headers: {
-
-                                "Content-Type":
-                                    "application/json",
-
-                                "Authorization":
-                                    "Bearer " +
-                                    OPENAI_API_KEY
-
-                            },
-
-                            body:
-                                JSON.stringify({
-
-                                    model:
-                                        AI_MODEL,
-
-                                    instructions:
-                                        "أنت مساعد داخل تطبيق دردشة عربي. أجب بوضوح وباختصار مناسب، ويمكنك استخدام العربية العراقية عندما يكون ذلك مناسباً.",
-
-                                    input:
-                                        history
-
-                                })
-
-                        }
-                    );
-
-
-                const result =
-                    await response.json();
-
-
-                if (!response.ok) {
-
-                    console.error(
-                        "OpenAI error:",
-                        result
-                    );
-
-
-                    socket.emit(
-                        "ai_error",
-                        "حدث خطأ من خدمة الذكاء الاصطناعي."
-                    );
-
-                    return;
-                }
-
-
-                /*
-                Responses API يعيد output.
-                نبحث عن النص داخل عناصر الإخراج.
-                */
-
-                let answer = "";
-
-
-                if (
-                    typeof result.output_text ===
-                    "string"
-                ) {
-
-                    answer =
-                        result.output_text;
-
-                } else if (
-                    Array.isArray(
-                        result.output
-                    )
-                ) {
-
-                    for (
-                        const item
-                        of result.output
-                    ) {
-
-                        if (
-                            !Array.isArray(
-                                item.content
-                            )
-                        )
-                            continue;
-
-
-                        for (
-                            const content
-                            of item.content
-                        ) {
-
-                            if (
-                                typeof content.text ===
-                                "string"
-                            ) {
-
-                                answer +=
-                                    content.text;
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
-
-                answer =
-                    answer.trim();
-
-
-                if (!answer) {
-
-                    answer =
-                        "ما قدرت أحصل على رد من الذكاء الاصطناعي.";
-
-                }
-
-
-                socket.emit(
-                    "ai_response",
-                    {
-
-                        text:
-                            answer,
-
-                        time:
-                            new Date()
-                                .toLocaleTimeString(
-                                    "ar-IQ",
-                                    {
-                                        hour:
-                                            "2-digit",
-
-                                        minute:
-                                            "2-digit"
-                                    }
-                                )
-
-                    }
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "AI request error:",
-                    error
-                );
-
-
-                socket.emit(
-                    "ai_error",
-                    "تعذر الاتصال بخدمة الذكاء الاصطناعي."
-                );
-
-            }
-
-        }
-    );
-
-
-    /*
-    ================================================
-    Disconnect
-    ================================================
-    */
-
-    socket.on(
-        "disconnect",
-        () => {
-
-            if (
-                socket.username &&
-                onlineUsers[
-                    socket.username
-                ]
-            ) {
-
-                accounts[
-                    socket.username
-                ].lastSeen =
-                    new Date().toISOString();
-
-
-                saveJSON(
-                    USERS_FILE,
-                    accounts
-                );
-
-
-                delete onlineUsers[
-                    socket.username
-                ];
-
-
-                io.emit(
-                    "update_users",
-                    onlineUsers
-                );
-
-            }
-
-
-            console.log(
-                "انقطع:",
-                socket.id
-            );
-
-        }
-    );
+        console.log(
+            "Disconnected:",
+            username
+        );
+    });
 
 });
 
 
-/*
-====================================================
-SERVER
-====================================================
-*/
+/* =========================================================
+   START SERVER
+========================================================= */
 
-server.listen(
-    PORT,
-    () => {
+server.listen(PORT, "0.0.0.0", () => {
 
-        console.log(
-            "================================="
-        );
+    console.log(
+        "===================================="
+    );
 
-        console.log(
-            "دردشة يعمل على المنفذ:",
-            PORT
-        );
+    console.log(
+        "Server running on port " + PORT
+    );
 
-        console.log(
-            "AI:",
-            OPENAI_API_KEY
-                ? "مفعل"
-                : "غير مفعل"
-        );
+    console.log(
+        "Developer: محمد حسنين"
+    );
 
-        console.log(
-            "AI Model:",
-            AI_MODEL
-        );
+    console.log(
+        "Max call participants: " +
+        MAX_CALL_PARTICIPANTS
+    );
 
-        console.log(
-            "================================="
-        );
+    console.log(
+        "Data file: " + DATA_FILE
+    );
 
-    }
-);
-```
+    console.log(
+        "===================================="
+    );
+});
