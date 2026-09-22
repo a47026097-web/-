@@ -1,16 +1,23 @@
 ```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<meta name="viewport"
+      content="width=device-width,initial-scale=1.0">
 
 <title>دردشة - محمد حسنين</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
+
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
 <style>
+
 * {
     box-sizing: border-box;
 }
@@ -21,14 +28,6 @@ body {
     background: #d9dbd5;
 }
 
-.dark body {
-    background: #111b21;
-}
-
-.app {
-    height: 100vh;
-}
-
 .chat-bg {
     background-color: #efeae2;
     background-image:
@@ -36,36 +35,30 @@ body {
     background-size: 25px 25px;
 }
 
-.dark .chat-bg {
-    background-color: #0b141a;
+#ai-messages {
+    background-color: #efeae2;
     background-image:
-        radial-gradient(#18252d 1px, transparent 1px);
+        radial-gradient(#d7d0c6 1px, transparent 1px);
+    background-size: 25px 25px;
 }
 
-::-webkit-scrollbar {
-    width: 6px;
+.message-bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
-::-webkit-scrollbar-thumb {
-    background: #aaa;
-    border-radius: 10px;
+.user-bubble {
+    background: #d9fdd3;
+    margin-right: auto;
 }
 
-.message-menu {
-    display: none;
-}
-
-.message:hover .message-menu {
-    display: block;
-}
-
-.call-video {
-    background: #111;
-    object-fit: cover;
-}
-
-.mobile-chat {
-    display: none;
+.ai-bubble {
+    background: white;
+    margin-left: auto;
 }
 
 @media(max-width:700px) {
@@ -79,10 +72,6 @@ body {
         width: 100%;
     }
 
-    .mobile-chat #sidebar {
-        display: none;
-    }
-
     body.chat-open #sidebar {
         display: none;
     }
@@ -91,66 +80,66 @@ body {
         display: flex;
     }
 
-    #login-box {
-        width: 92%;
-    }
 }
+
 </style>
+
 </head>
 
 <body>
+
 
 <!-- ================================================= -->
 <!-- LOGIN -->
 <!-- ================================================= -->
 
 <div id="login-screen"
-     class="fixed inset-0 bg-[#00a884] flex items-center justify-center z-50">
+     class="fixed inset-0 bg-[#00a884]
+            flex items-center justify-center z-50">
 
-    <div id="login-box"
-         class="bg-white rounded-2xl shadow-2xl p-8 w-[400px] text-center">
+    <div class="bg-white rounded-2xl shadow-2xl
+                p-8 w-[380px] text-center">
 
-        <div class="w-20 h-20 mx-auto mb-4 rounded-full
-                    bg-[#00a884] text-white flex items-center
+        <div class="w-20 h-20 mx-auto
+                    bg-[#00a884] text-white
+                    rounded-full flex items-center
                     justify-center text-4xl">
 
             <i class="fa-solid fa-comments"></i>
 
         </div>
 
-        <h1 class="text-2xl font-bold text-gray-800">
+        <h1 class="text-2xl font-bold mt-4">
             دردشة
         </h1>
 
-        <p class="text-gray-500 mt-2 mb-6">
-            سجّل الدخول باسمك
+        <p class="text-gray-500 mt-2">
+            أهلاً بك في دردشة محمد حسنين
         </p>
 
         <input
             id="username-input"
-            type="text"
             maxlength="30"
             placeholder="اكتب اسمك"
-            class="w-full border rounded-xl px-4 py-3
-                   outline-none focus:border-[#00a884]">
+            class="w-full border rounded-xl
+                   px-4 py-3 mt-6 outline-none">
 
         <button
             onclick="login()"
-            class="w-full mt-4 bg-[#00a884]
+            class="w-full bg-[#00a884]
                    text-white py-3 rounded-xl
-                   font-bold hover:bg-[#008f72]">
+                   mt-3 font-bold">
 
             دخول
+
         </button>
 
-        <p id="login-error"
-           class="text-red-500 text-sm mt-3"></p>
-
-        <div class="mt-6 text-xs text-gray-400">
-            المطور: محمد حسنين
+        <div id="login-error"
+             class="text-red-500 text-sm mt-3">
         </div>
 
     </div>
+
 </div>
 
 
@@ -159,58 +148,53 @@ body {
 <!-- ================================================= -->
 
 <div id="app"
-     class="app hidden flex bg-white">
+     class="hidden h-screen bg-white">
 
-    <!-- ============================================= -->
+
     <!-- SIDEBAR -->
-    <!-- ============================================= -->
 
     <aside id="sidebar"
-           class="w-[360px] bg-white border-l
-                  border-gray-200 flex flex-col">
+           class="w-[360px] border-l
+                  border-gray-200
+                  flex flex-col bg-white">
 
-        <!-- HEADER -->
 
-        <header class="bg-[#f0f2f5] p-3
-                       flex items-center justify-between">
+        <div class="p-3 bg-[#f0f2f5]
+                    flex items-center
+                    justify-between">
 
-            <div class="flex items-center gap-3">
+            <div>
 
-                <div class="w-11 h-11 rounded-full
-                            bg-[#00a884] text-white
-                            flex items-center justify-center">
-
-                    <i class="fa-solid fa-user"></i>
-
+                <div id="my-name"
+                     class="font-bold">
                 </div>
 
-                <div>
-
-                    <div id="my-name"
-                         class="font-bold text-gray-800">
-                    </div>
-
-                    <div class="text-xs text-green-600">
-                        متصل
-                    </div>
-
+                <div class="text-xs text-green-600">
+                    متصل
                 </div>
 
             </div>
 
+
             <div class="flex gap-3">
 
-                <button onclick="toggleDarkMode()"
-                        title="الوضع الليلي"
-                        class="text-gray-600 text-xl">
+                <!-- AI BUTTON -->
 
-                    <i class="fa-solid fa-moon"></i>
+                <button
+                    onclick="openAI()"
+                    title="الذكاء الاصطناعي"
+                    class="w-10 h-10 rounded-full
+                           bg-purple-600 text-white
+                           hover:bg-purple-700">
+
+                    <i class="fa-solid fa-robot"></i>
 
                 </button>
 
-                <button onclick="createGroup()"
-                        title="مجموعة"
-                        class="text-gray-600 text-xl">
+
+                <button
+                    onclick="createGroup()"
+                    class="text-gray-600 text-xl">
 
                     <i class="fa-solid fa-users"></i>
 
@@ -218,31 +202,23 @@ body {
 
             </div>
 
-        </header>
+        </div>
 
 
         <!-- SEARCH -->
 
-        <div class="p-2 bg-white">
+        <div class="p-2">
 
-            <div class="bg-[#f0f2f5] rounded-lg
-                        px-3 py-2 flex items-center">
-
-                <i class="fa-solid fa-search text-gray-400"></i>
-
-                <input
-                    id="search-input"
-                    oninput="searchChats()"
-                    placeholder="بحث..."
-                    class="bg-transparent outline-none
-                           flex-1 mr-2 text-sm">
-
-            </div>
+            <input
+                id="search"
+                oninput="searchChats()"
+                placeholder="بحث..."
+                class="w-full bg-[#f0f2f5]
+                       rounded-lg px-4 py-2
+                       outline-none">
 
         </div>
 
-
-        <!-- CHATS -->
 
         <div id="chats-list"
              class="flex-1 overflow-y-auto">
@@ -251,48 +227,26 @@ body {
     </aside>
 
 
-    <!-- ============================================= -->
-    <!-- CHAT PANEL -->
-    <!-- ============================================= -->
+    <!-- CHAT -->
 
     <main id="chat-panel"
           class="flex-1 flex flex-col chat-bg">
 
-        <!-- CHAT HEADER -->
 
         <header class="bg-[#f0f2f5]
                        p-3 flex items-center
-                       justify-between border-b">
+                       justify-between">
 
-            <div class="flex items-center gap-3">
+            <div>
 
-                <button onclick="closeChat()"
-                        class="md:hidden text-gray-600">
-
-                    <i class="fa-solid fa-arrow-right"></i>
-
-                </button>
-
-                <div class="w-10 h-10 rounded-full
-                            bg-gray-300 flex items-center
-                            justify-center">
-
-                    <i class="fa-solid fa-user text-gray-600"></i>
-
+                <div id="chat-title"
+                     class="font-bold">
+                    الدردشة العامة
                 </div>
 
-                <div>
-
-                    <div id="chat-title"
-                         class="font-bold">
-                        الدردشة العامة
-                    </div>
-
-                    <div id="chat-status"
-                         class="text-xs text-gray-500">
-                        مجموعة
-                    </div>
-
+                <div id="chat-status"
+                     class="text-xs text-gray-500">
+                    مجموعة
                 </div>
 
             </div>
@@ -302,7 +256,7 @@ body {
 
                 <button
                     onclick="startCall('audio')"
-                    class="text-gray-600 text-xl">
+                    class="text-xl">
 
                     <i class="fa-solid fa-phone"></i>
 
@@ -310,17 +264,9 @@ body {
 
                 <button
                     onclick="startCall('video')"
-                    class="text-gray-600 text-xl">
+                    class="text-xl">
 
                     <i class="fa-solid fa-video"></i>
-
-                </button>
-
-                <button
-                    onclick="searchMessages()"
-                    class="text-gray-600 text-xl">
-
-                    <i class="fa-solid fa-magnifying-glass"></i>
 
                 </button>
 
@@ -329,82 +275,33 @@ body {
         </header>
 
 
-        <!-- MESSAGES -->
-
-        <section id="messages"
-                 class="flex-1 overflow-y-auto p-4">
-        </section>
-
-
-        <!-- TYPING -->
-
-        <div id="typing"
-             class="hidden px-4 pb-1
-                    text-xs text-[#00a884]">
+        <div id="messages"
+             class="flex-1 overflow-y-auto p-4">
         </div>
 
 
-        <!-- INPUT -->
-
-        <footer class="bg-[#f0f2f5] p-3">
-
-            <div class="flex items-center gap-2">
-
-                <!-- FILE -->
-
-                <label class="cursor-pointer text-gray-600 text-xl">
-
-                    <i class="fa-solid fa-paperclip"></i>
-
-                    <input
-                        type="file"
-                        id="file-input"
-                        class="hidden"
-                        onchange="sendFile(event)">
-
-                </label>
+        <div id="typing"
+             class="hidden text-xs
+                    text-[#00a884] px-4">
+        </div>
 
 
-                <!-- IMAGE -->
+        <footer class="p-3 bg-[#f0f2f5]">
 
-                <label class="cursor-pointer text-gray-600 text-xl">
-
-                    <i class="fa-solid fa-image"></i>
-
-                    <input
-                        type="file"
-                        accept="image/*"
-                        class="hidden"
-                        onchange="sendImage(event)">
-
-                </label>
-
-
-                <!-- MIC -->
-
-                <button
-                    id="mic-button"
-                    onclick="toggleRecording()"
-                    class="text-gray-600 text-xl">
-
-                    <i class="fa-solid fa-microphone"></i>
-
-                </button>
-
+            <div class="flex gap-2">
 
                 <input
                     id="message-input"
-                    oninput="typing()"
                     onkeydown="messageKey(event)"
                     placeholder="اكتب رسالة..."
-                    class="flex-1 bg-white rounded-xl
+                    class="flex-1 rounded-xl
                            px-4 py-3 outline-none">
-
 
                 <button
                     onclick="sendMessage()"
-                    class="w-11 h-11 rounded-full
-                           bg-[#00a884] text-white">
+                    class="w-12 h-12
+                           bg-[#00a884]
+                           text-white rounded-full">
 
                     <i class="fa-solid fa-paper-plane"></i>
 
@@ -420,18 +317,127 @@ body {
 
 
 <!-- ================================================= -->
-<!-- CALL MODAL -->
+<!-- AI WINDOW -->
+<!-- ================================================= -->
+
+<div id="ai-screen"
+     class="hidden fixed inset-0 z-40 bg-white">
+
+
+    <!-- AI HEADER -->
+
+    <header class="h-[65px]
+                   bg-purple-600
+                   text-white px-4
+                   flex items-center
+                   justify-between">
+
+        <div class="flex items-center gap-3">
+
+            <button
+                onclick="closeAI()"
+                class="text-xl">
+
+                <i class="fa-solid fa-arrow-right"></i>
+
+            </button>
+
+            <div class="w-10 h-10
+                        rounded-full bg-white
+                        text-purple-600
+                        flex items-center
+                        justify-center">
+
+                <i class="fa-solid fa-robot"></i>
+
+            </div>
+
+            <div>
+
+                <div class="font-bold">
+                    الذكاء الاصطناعي
+                </div>
+
+                <div id="ai-status"
+                     class="text-xs opacity-80">
+
+                    جاهز
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <button
+            onclick="clearAI()"
+            title="مسح المحادثة">
+
+            <i class="fa-solid fa-trash"></i>
+
+        </button>
+
+    </header>
+
+
+    <!-- AI MESSAGES -->
+
+    <main id="ai-messages"
+          class="flex-1 overflow-y-auto p-4">
+
+        <div class="message-bubble ai-bubble">
+            🤖 أهلاً! أنا مساعد الذكاء الاصطناعي.
+            اكتب لي أي شيء تريد مساعدتي به.
+        </div>
+
+    </main>
+
+
+    <!-- AI INPUT -->
+
+    <footer class="p-3 bg-[#f0f2f5]">
+
+        <div class="flex gap-2">
+
+            <input
+                id="ai-input"
+                onkeydown="aiKey(event)"
+                placeholder="اكتب للذكاء الاصطناعي..."
+                class="flex-1 bg-white
+                       rounded-xl px-4 py-3
+                       outline-none">
+
+            <button
+                onclick="sendAI()"
+                class="w-12 h-12
+                       rounded-full
+                       bg-purple-600
+                       text-white">
+
+                <i class="fa-solid fa-paper-plane"></i>
+
+            </button>
+
+        </div>
+
+    </footer>
+
+</div>
+
+
+<!-- ================================================= -->
+<!-- CALL -->
 <!-- ================================================= -->
 
 <div id="call-modal"
      class="hidden fixed inset-0 z-50
-            bg-black/90 text-white">
+            bg-black text-white">
 
     <div class="h-full flex flex-col">
 
-        <!-- CALL HEADER -->
-
-        <div class="p-4 flex justify-between items-center">
+        <div class="p-4 flex
+                    justify-between">
 
             <div>
 
@@ -442,14 +448,15 @@ body {
 
                 <div id="call-status"
                      class="text-sm text-gray-300">
-                    جاري الاتصال...
                 </div>
 
             </div>
 
-            <button onclick="endCall()"
-                    class="bg-red-600 w-12 h-12
-                           rounded-full">
+            <button
+                onclick="endCall()"
+                class="bg-red-600
+                       w-12 h-12
+                       rounded-full">
 
                 <i class="fa-solid fa-phone-slash"></i>
 
@@ -458,75 +465,61 @@ body {
         </div>
 
 
-        <!-- VIDEOS -->
+        <div class="flex-1
+                    flex items-center
+                    justify-center">
 
-        <div id="call-videos"
-             class="flex-1 grid grid-cols-1
-                    md:grid-cols-2 gap-3 p-4">
-
-            <video id="remote-video"
-                   autoplay
-                   playsinline
-                   class="call-video w-full h-full
-                          rounded-xl hidden">
+            <video
+                id="remote-video"
+                autoplay
+                playsinline
+                class="hidden w-[80%]
+                       max-h-[70%]
+                       bg-black rounded-xl">
             </video>
 
-            <video id="local-video"
-                   autoplay
-                   muted
-                   playsinline
-                   class="call-video w-48 h-36
-                          rounded-xl absolute
-                          bottom-28 right-5 hidden">
+            <video
+                id="local-video"
+                autoplay
+                muted
+                playsinline
+                class="hidden fixed
+                       bottom-28 right-5
+                       w-40 h-28
+                       bg-black rounded-xl">
             </video>
 
         </div>
 
 
-        <!-- PARTICIPANTS -->
+        <div class="p-6 flex
+                    justify-center gap-4">
 
-        <div id="participants"
-             class="px-4 text-center text-sm">
-        </div>
-
-
-        <!-- CONTROLS -->
-
-        <div class="p-6 flex justify-center
-                    gap-4">
-
-            <button onclick="toggleMic()"
-                    id="call-mic"
-                    class="w-14 h-14 rounded-full
-                           bg-gray-700">
+            <button
+                onclick="toggleMic()"
+                class="w-14 h-14
+                       bg-gray-700
+                       rounded-full">
 
                 <i class="fa-solid fa-microphone"></i>
 
             </button>
 
-
-            <button onclick="toggleCamera()"
-                    id="call-camera"
-                    class="w-14 h-14 rounded-full
-                           bg-gray-700">
+            <button
+                onclick="toggleCamera()"
+                class="w-14 h-14
+                       bg-gray-700
+                       rounded-full">
 
                 <i class="fa-solid fa-video"></i>
 
             </button>
 
-
-            <button onclick="invitePerson()"
-                    class="w-14 h-14 rounded-full
-                           bg-[#00a884]">
-
-                <i class="fa-solid fa-user-plus"></i>
-
-            </button>
-
-
-            <button onclick="endCall()"
-                    class="w-14 h-14 rounded-full
-                           bg-red-600">
+            <button
+                onclick="endCall()"
+                class="w-14 h-14
+                       bg-red-600
+                       rounded-full">
 
                 <i class="fa-solid fa-phone-slash"></i>
 
@@ -539,79 +532,19 @@ body {
 </div>
 
 
-<!-- ================================================= -->
-<!-- INCOMING CALL -->
-<!-- ================================================= -->
-
-<div id="incoming-call"
-     class="hidden fixed inset-0 z-[60]
-            bg-black/80 flex items-center
-            justify-center">
-
-    <div class="bg-white rounded-2xl
-                p-8 w-[350px] text-center">
-
-        <div class="w-20 h-20 mx-auto
-                    rounded-full bg-[#00a884]
-                    text-white flex items-center
-                    justify-center text-3xl">
-
-            <i class="fa-solid fa-phone"></i>
-
-        </div>
-
-        <h2 id="incoming-name"
-            class="font-bold text-xl mt-4">
-        </h2>
-
-        <p class="text-gray-500 mb-6">
-            مكالمة واردة
-        </p>
-
-        <div class="flex justify-center gap-4">
-
-            <button onclick="acceptCall()"
-                    class="bg-green-600 text-white
-                           px-7 py-3 rounded-xl">
-
-                قبول
-            </button>
-
-            <button onclick="rejectCall()"
-                    class="bg-red-600 text-white
-                           px-7 py-3 rounded-xl">
-
-                رفض
-            </button>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- SOCKET.IO -->
+<!-- SOCKET -->
 
 <script src="/socket.io/socket.io.js"></script>
 
 
 <script>
 
-// ==================================================
-// SOCKET
-// ==================================================
-
 const socket = io();
-
-
-// ==================================================
-// VARIABLES
-// ==================================================
 
 let myUsername = "";
 
-let currentChat = "الدردشة العامة";
+let currentChat =
+    "الدردشة العامة";
 
 let allMessages = [];
 
@@ -619,242 +552,213 @@ let usersData = {};
 
 let groupsList = [];
 
-let incomingCallData = null;
+let aiHistory = [];
 
-let peerConnections = {};
+let peerConnection = null;
 
 let localStream = null;
 
-let currentCallType = "audio";
+let muted = false;
 
-let callParticipants = [];
-
-let isMuted = false;
-
-let cameraEnabled = true;
-
-let mediaRecorder = null;
-
-let audioChunks = [];
-
-let recording = false;
+let cameraOn = true;
 
 
-// ==================================================
-// TURN / STUN
-// ==================================================
-
-const rtcConfig = {
-
-    iceServers: [
-
-        {
-            urls: "stun:stun.l.google.com:19302"
-        },
-
-        {
-            urls: "stun:stun.relay.metered.ca:80"
-        },
-
-        {
-            urls: "turn:global.relay.metered.ca:80",
-            username: "5a7f0ee6288a27c37fc25fa6",
-            credential: "xHtDb/xICUr5qHKb"
-        },
-
-        {
-            urls: "turn:global.relay.metered.ca:443",
-            username: "5a7f0ee6288a27c37fc25fa6",
-            credential: "xHtDb/xICUr5qHKb"
-        }
-
-    ]
-
-};
-
-
-// ==================================================
-// LOGIN
-// ==================================================
+/* ================================================
+LOGIN
+================================================ */
 
 function login() {
 
     const input =
-        document.getElementById("username-input");
+        document.getElementById(
+            "username-input"
+        );
 
     const username =
         input.value.trim();
 
-    if (!username) {
-
-        document.getElementById("login-error")
-            .innerText =
-            "اكتب اسمك أولاً.";
-
+    if (!username)
         return;
-    }
 
     socket.emit(
         "verify_user",
         username
     );
+
 }
 
 
 document
-    .getElementById("username-input")
-    .addEventListener("keydown", e => {
+    .getElementById(
+        "username-input"
+    )
+    .addEventListener(
+        "keydown",
+        e => {
 
-        if (e.key === "Enter") {
-            login();
+            if (e.key === "Enter")
+                login();
+
         }
-
-    });
-
-
-// ==================================================
-// LOGIN SUCCESS
-// ==================================================
-
-socket.on("auth_success", username => {
-
-    myUsername = username;
-
-    document
-        .getElementById("login-screen")
-        .classList.add("hidden");
-
-    document
-        .getElementById("app")
-        .classList.remove("hidden");
-
-    document
-        .getElementById("my-name")
-        .innerText = username;
-
-    switchChat("الدردشة العامة");
-
-});
+    );
 
 
-socket.on("auth_error", message => {
+socket.on(
+    "auth_success",
+    username => {
 
-    document
-        .getElementById("login-error")
-        .innerText = message;
+        myUsername =
+            username;
 
-});
+        document
+            .getElementById(
+                "login-screen"
+            )
+            .classList.add(
+                "hidden"
+            );
 
+        document
+            .getElementById(
+                "app"
+            )
+            .classList.remove(
+                "hidden"
+            );
 
-// ==================================================
-// USERS
-// ==================================================
+        document
+            .getElementById(
+                "my-name"
+            )
+            .innerText =
+            username;
 
-socket.on("update_users", data => {
+        switchChat(
+            "الدردشة العامة"
+        );
 
-    usersData = data;
-
-    renderChats();
-
-});
-
-
-// ==================================================
-// GROUPS
-// ==================================================
-
-socket.on("update_groups", groups => {
-
-    groupsList = groups;
-
-    renderChats();
-
-});
-
-
-// ==================================================
-// HISTORY
-// ==================================================
-
-socket.on("load_history", messages => {
-
-    allMessages = messages || [];
-
-    renderMessages();
-
-});
+    }
+);
 
 
-// ==================================================
-// CHAT LIST
-// ==================================================
+socket.on(
+    "auth_error",
+    message => {
 
-function renderChats(filter = "") {
+        document
+            .getElementById(
+                "login-error"
+            )
+            .innerText =
+            message;
+
+    }
+);
+
+
+/* ================================================
+USERS
+================================================ */
+
+socket.on(
+    "update_users",
+    users => {
+
+        usersData =
+            users;
+
+        renderChats();
+
+    }
+);
+
+
+socket.on(
+    "update_groups",
+    groups => {
+
+        groupsList =
+            groups;
+
+        renderChats();
+
+    }
+);
+
+
+/* ================================================
+CHAT LIST
+================================================ */
+
+function renderChats(
+    filter = ""
+) {
 
     const list =
-        document.getElementById("chats-list");
+        document.getElementById(
+            "chats-list"
+        );
 
     list.innerHTML = "";
 
-    // GROUPS
 
-    groupsList.forEach(group => {
+    groupsList.forEach(
+        group => {
 
-        const name =
-            group.name || group;
+            const name =
+                typeof group === "string"
+                    ? group
+                    : group.name;
+
+            if (
+                filter &&
+                !name.includes(filter)
+            )
+                return;
+
+
+            const div =
+                document.createElement(
+                    "div"
+                );
+
+            div.className =
+                "p-4 border-b cursor-pointer hover:bg-gray-100";
+
+
+            div.innerHTML = `
+
+                <div class="font-bold">
+                    👥 ${escapeHtml(name)}
+                </div>
+
+                <div class="text-xs text-gray-500">
+                    مجموعة
+                </div>
+
+            `;
+
+
+            div.onclick =
+                () => switchChat(name);
+
+
+            list.appendChild(div);
+
+        }
+    );
+
+
+    for (
+        const username in usersData
+    ) {
 
         if (
-            filter &&
-            !name.includes(filter)
-        ) return;
-
-        const div =
-            document.createElement("div");
-
-        div.className =
-            "p-4 border-b hover:bg-gray-100 cursor-pointer";
-
-        div.innerHTML = `
-
-            <div class="flex items-center gap-3">
-
-                <div class="w-11 h-11 rounded-full
-                            bg-[#00a884] text-white
-                            flex items-center justify-center">
-
-                    <i class="fa-solid fa-users"></i>
-
-                </div>
-
-                <div>
-
-                    <div class="font-bold">
-                        ${escapeHtml(name)}
-                    </div>
-
-                    <div class="text-xs text-gray-500">
-                        مجموعة
-                    </div>
-
-                </div>
-
-            </div>
-        `;
-
-        div.onclick = () =>
-            switchChat(name);
-
-        list.appendChild(div);
-
-    });
-
-
-    // USERS
-
-    for (const username in usersData) {
-
-        if (username === myUsername)
+            username ===
+            myUsername
+        )
             continue;
+
 
         if (
             filter &&
@@ -862,52 +766,46 @@ function renderChats(filter = "") {
         )
             continue;
 
-        const user =
-            usersData[username];
 
         const div =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         div.className =
-            "p-4 border-b hover:bg-gray-100 cursor-pointer";
+            "p-4 border-b cursor-pointer hover:bg-gray-100";
+
 
         div.innerHTML = `
 
-            <div class="flex items-center gap-3">
+            <div class="font-bold">
+                👤 ${escapeHtml(username)}
+            </div>
 
-                <div class="w-11 h-11 rounded-full
-                            bg-gray-300 flex items-center
-                            justify-center">
+            <div class="text-xs ${
+                usersData[username].status ===
+                "متصل"
+                ? "text-green-600"
+                : "text-gray-500"
+            }">
 
-                    <i class="fa-solid fa-user"></i>
-
-                </div>
-
-                <div class="flex-1">
-
-                    <div class="font-bold">
-                        ${escapeHtml(username)}
-                    </div>
-
-                    <div class="text-xs ${
-                        user.status === "متصل"
-                            ? "text-green-600"
-                            : "text-gray-400"
-                    }">
-
-                        ${user.status || "غير متصل"}
-
-                    </div>
-
-                </div>
+                ${
+                    usersData[username].status ||
+                    "غير متصل"
+                }
 
             </div>
+
         `;
 
-        div.onclick = () =>
-            switchChat(username);
+
+        div.onclick =
+            () => switchChat(username);
+
 
         list.appendChild(div);
+
     }
 
 }
@@ -915,60 +813,53 @@ function renderChats(filter = "") {
 
 function searchChats() {
 
-    const value =
-        document.getElementById(
-            "search-input"
-        ).value.trim();
-
-    renderChats(value);
+    renderChats(
+        document
+            .getElementById(
+                "search"
+            )
+            .value
+            .trim()
+    );
 
 }
 
 
-// ==================================================
-// SWITCH CHAT
-// ==================================================
+/* ================================================
+SWITCH CHAT
+================================================ */
 
 function switchChat(name) {
 
-    currentChat = name;
+    currentChat =
+        name;
 
     document
-        .getElementById("chat-title")
-        .innerText = name;
+        .getElementById(
+            "chat-title"
+        )
+        .innerText =
+        name;
+
 
     document
-        .getElementById("chat-status")
+        .getElementById(
+            "chat-status"
+        )
         .innerText =
         usersData[name]
             ? usersData[name].status
             : "مجموعة";
 
-    document
-        .body
-        .classList.add("chat-open");
 
     renderMessages();
 
 }
 
 
-// ==================================================
-// CLOSE MOBILE CHAT
-// ==================================================
-
-function closeChat() {
-
-    document
-        .body
-        .classList.remove("chat-open");
-
-}
-
-
-// ==================================================
-// SEND MESSAGE
-// ==================================================
+/* ================================================
+MESSAGES
+================================================ */
 
 function sendMessage() {
 
@@ -980,25 +871,29 @@ function sendMessage() {
     const text =
         input.value.trim();
 
-    if (!text) return;
+    if (!text)
+        return;
+
 
     socket.emit(
         "send_message",
         {
-            chat: currentChat,
-            type: "text",
-            text: text
+            chat:
+                currentChat,
+
+            type:
+                "text",
+
+            text:
+                text
         }
     );
+
 
     input.value = "";
 
 }
 
-
-// ==================================================
-// ENTER
-// ==================================================
 
 function messageKey(e) {
 
@@ -1013,562 +908,180 @@ function messageKey(e) {
 }
 
 
-// ==================================================
-// RECEIVE MESSAGE
-// ==================================================
+socket.on(
+    "load_history",
+    messages => {
 
-socket.on("receive_message", message => {
-
-    allMessages.push(message);
-
-    renderMessages();
-
-});
-
-
-// ==================================================
-// RENDER MESSAGES
-// ==================================================
-
-function renderMessages() {
-
-    const container =
-        document.getElementById(
-            "messages"
-        );
-
-    container.innerHTML = "";
-
-    const filtered =
-        allMessages.filter(
-            message =>
-                message.chat === currentChat
-        );
-
-    filtered.forEach(message => {
-
-        const mine =
-            message.username === myUsername;
-
-        const div =
-            document.createElement("div");
-
-        div.className =
-            `message flex mb-2 ${
-                mine
-                    ? "justify-end"
-                    : "justify-start"
-            }`;
-
-        let content = "";
-
-        if (message.type === "image") {
-
-            content = `
-                <img
-                    src="${message.content}"
-                    class="max-w-[260px] rounded-lg">
-            `;
-
-        } else if (message.type === "audio") {
-
-            content = `
-                <audio
-                    controls
-                    src="${message.content}">
-                </audio>
-            `;
-
-        } else if (message.type === "file") {
-
-            content = `
-                <a
-                    href="${message.content}"
-                    download="${escapeHtml(message.fileName || "file")}"
-                    class="text-blue-600 underline">
-
-                    <i class="fa-solid fa-file"></i>
-                    ${escapeHtml(message.fileName || "ملف")}
-
-                </a>
-            `;
-
-        } else {
-
-            content = `
-                <div class="text-sm">
-                    ${escapeHtml(message.text || "")}
-                </div>
-            `;
-        }
-
-
-        div.innerHTML = `
-
-            <div class="relative max-w-[75%]
-                        px-3 py-2 rounded-xl shadow
-                        ${
-                            mine
-                            ? "bg-[#d9fdd3]"
-                            : "bg-white"
-                        }">
-
-                ${
-                    !mine
-                    ? `
-                        <div class="text-xs
-                                    text-[#00a884]
-                                    font-bold mb-1">
-
-                            ${escapeHtml(message.username)}
-
-                        </div>
-                    `
-                    : ""
-                }
-
-                ${content}
-
-                <div class="text-[10px]
-                            text-gray-500
-                            text-left mt-1">
-
-                    ${message.time || ""}
-
-                    ${
-                        mine
-                        ? `
-                            <span class="mr-1">
-                                ${
-                                    message.status === "read"
-                                    ? "✓✓"
-                                    : message.status === "delivered"
-                                    ? "✓✓"
-                                    : "✓"
-                                }
-                            </span>
-                        `
-                        : ""
-                    }
-
-                </div>
-
-                ${
-                    mine &&
-                    message.type === "text"
-                    ? `
-                        <div class="message-menu
-                                    absolute left-2 top-1
-                                    bg-white shadow
-                                    rounded p-1">
-
-                            <button
-                                onclick="editMessage('${message.id}')"
-                                class="px-2">
-
-                                ✏️
-
-                            </button>
-
-                            <button
-                                onclick="deleteMessage('${message.id}')"
-                                class="px-2">
-
-                                🗑️
-
-                            </button>
-
-                        </div>
-                    `
-                    : ""
-                }
-
-            </div>
-        `;
-
-        container.appendChild(div);
-
-    });
-
-    container.scrollTop =
-        container.scrollHeight;
-
-}
-
-
-// ==================================================
-// EDIT
-// ==================================================
-
-function editMessage(id) {
-
-    const message =
-        allMessages.find(
-            m => m.id === id
-        );
-
-    if (!message) return;
-
-    const newText =
-        prompt(
-            "تعديل الرسالة:",
-            message.text
-        );
-
-    if (
-        newText === null ||
-        !newText.trim()
-    )
-        return;
-
-    socket.emit(
-        "edit_message",
-        {
-            messageId: id,
-            text: newText.trim()
-        }
-    );
-
-}
-
-
-socket.on("message_edited", message => {
-
-    const index =
-        allMessages.findIndex(
-            m => m.id === message.id
-        );
-
-    if (index !== -1) {
-
-        allMessages[index] =
-            message;
+        allMessages =
+            messages || [];
 
         renderMessages();
-
-    }
-
-});
-
-
-// ==================================================
-// DELETE
-// ==================================================
-
-function deleteMessage(id) {
-
-    if (
-        !confirm(
-            "حذف هذه الرسالة؟"
-        )
-    )
-        return;
-
-    socket.emit(
-        "delete_message",
-        {
-            messageId: id
-        }
-    );
-
-}
-
-
-socket.on("message_deleted", id => {
-
-    allMessages =
-        allMessages.filter(
-            m => m.id !== id
-        );
-
-    renderMessages();
-
-});
-
-
-// ==================================================
-// MESSAGE SEARCH
-// ==================================================
-
-function searchMessages() {
-
-    const text =
-        prompt(
-            "اكتب كلمة للبحث داخل المحادثة:"
-        );
-
-    if (!text) return;
-
-    const found =
-        allMessages.filter(
-            m =>
-                m.chat === currentChat &&
-                String(m.text || "")
-                    .includes(text)
-        );
-
-    if (!found.length) {
-
-        alert("ما لقيت نتائج.");
-
-        return;
-    }
-
-    alert(
-        "تم العثور على " +
-        found.length +
-        " رسالة."
-    );
-
-}
-
-
-// ==================================================
-// IMAGE
-// ==================================================
-
-function sendImage(event) {
-
-    const file =
-        event.target.files[0];
-
-    if (!file) return;
-
-    if (file.size > 8 * 1024 * 1024) {
-
-        alert(
-            "الصورة أكبر من 8MB."
-        );
-
-        return;
-    }
-
-    const reader =
-        new FileReader();
-
-    reader.onload = () => {
-
-        socket.emit(
-            "send_message",
-            {
-                chat: currentChat,
-                type: "image",
-                content: reader.result
-            }
-        );
-
-    };
-
-    reader.readAsDataURL(file);
-
-    event.target.value = "";
-
-}
-
-
-// ==================================================
-// FILE
-// ==================================================
-
-function sendFile(event) {
-
-    const file =
-        event.target.files[0];
-
-    if (!file) return;
-
-    if (file.size > 8 * 1024 * 1024) {
-
-        alert(
-            "الملف أكبر من 8MB."
-        );
-
-        return;
-    }
-
-    const reader =
-        new FileReader();
-
-    reader.onload = () => {
-
-        socket.emit(
-            "send_message",
-            {
-                chat: currentChat,
-                type: "file",
-                content: reader.result,
-                fileName: file.name
-            }
-        );
-
-    };
-
-    reader.readAsDataURL(file);
-
-    event.target.value = "";
-
-}
-
-
-// ==================================================
-// VOICE MESSAGE
-// ==================================================
-
-async function toggleRecording() {
-
-    const button =
-        document.getElementById(
-            "mic-button"
-        );
-
-    if (!recording) {
-
-        try {
-
-            const stream =
-                await navigator
-                    .mediaDevices
-                    .getUserMedia({
-                        audio: true
-                    });
-
-            mediaRecorder =
-                new MediaRecorder(stream);
-
-            audioChunks = [];
-
-            mediaRecorder.ondataavailable =
-                e => {
-                    audioChunks.push(e.data);
-                };
-
-            mediaRecorder.onstop = () => {
-
-                const blob =
-                    new Blob(
-                        audioChunks,
-                        {
-                            type: "audio/webm"
-                        }
-                    );
-
-                const reader =
-                    new FileReader();
-
-                reader.onload = () => {
-
-                    socket.emit(
-                        "send_message",
-                        {
-                            chat: currentChat,
-                            type: "audio",
-                            content: reader.result
-                        }
-                    );
-
-                };
-
-                reader.readAsDataURL(blob);
-
-                stream
-                    .getTracks()
-                    .forEach(
-                        track => track.stop()
-                    );
-
-            };
-
-            mediaRecorder.start();
-
-            recording = true;
-
-            button.classList.add(
-                "text-red-600"
-            );
-
-        } catch (e) {
-
-            alert(
-                "تعذر الوصول إلى المايكروفون."
-            );
-
-        }
-
-    } else {
-
-        mediaRecorder.stop();
-
-        recording = false;
-
-        button.classList.remove(
-            "text-red-600"
-        );
-
-    }
-
-}
-
-
-// ==================================================
-// TYPING
-// ==================================================
-
-function typing() {
-
-    socket.emit(
-        "typing",
-        {
-            chat: currentChat
-        }
-    );
-
-}
-
-
-socket.on(
-    "display_typing",
-    data => {
-
-        if (
-            data.chat !== currentChat ||
-            data.username === myUsername
-        )
-            return;
-
-        const element =
-            document.getElementById(
-                "typing"
-            );
-
-        element.innerText =
-            data.username +
-            " يكتب الآن...";
-
-        element.classList.remove(
-            "hidden"
-        );
-
-        clearTimeout(
-            window.typingTimer
-        );
-
-        window.typingTimer =
-            setTimeout(
-                () => {
-                    element.classList.add(
-                        "hidden"
-                    );
-                },
-                2000
-            );
 
     }
 );
 
 
-// ==================================================
-// CREATE GROUP
-// ==================================================
+socket.on(
+    "receive_message",
+    message => {
+
+        allMessages.push(
+            message
+        );
+
+        renderMessages();
+
+    }
+);
+
+
+function renderMessages() {
+
+    const box =
+        document.getElementById(
+            "messages"
+        );
+
+    box.innerHTML = "";
+
+
+    allMessages
+        .filter(
+            m =>
+                m.chat ===
+                currentChat
+        )
+        .forEach(
+            m => {
+
+                const div =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                const mine =
+                    m.username ===
+                    myUsername;
+
+
+                div.className =
+                    mine
+                    ? "flex justify-start mb-2"
+                    : "flex justify-end mb-2";
+
+
+                let content =
+                    escapeHtml(
+                        m.text || ""
+                    );
+
+
+                if (
+                    m.type ===
+                    "image"
+                ) {
+
+                    content =
+                        `<img src="${m.content}"
+                               class="max-w-[250px] rounded-lg">`;
+
+                }
+
+
+                if (
+                    m.type ===
+                    "audio"
+                ) {
+
+                    content =
+                        `<audio controls
+                                src="${m.content}">
+                         </audio>`;
+
+                }
+
+
+                if (
+                    m.type ===
+                    "file"
+                ) {
+
+                    content =
+                        `<a href="${m.content}"
+                            download="${escapeHtml(m.fileName || "file")}"
+                            class="text-blue-600 underline">
+
+                            📎 ${escapeHtml(m.fileName || "ملف")}
+
+                         </a>`;
+
+                }
+
+
+                div.innerHTML = `
+
+                    <div class="max-w-[75%]
+                                px-3 py-2
+                                rounded-xl
+                                ${
+                                    mine
+                                    ? "bg-[#d9fdd3]"
+                                    : "bg-white"
+                                }">
+
+                        ${
+                            !mine
+                            ? `
+                            <div class="text-xs
+                                        text-[#00a884]
+                                        font-bold">
+
+                                ${escapeHtml(m.username)}
+
+                            </div>
+                            `
+                            : ""
+                        }
+
+                        ${content}
+
+                        <div class="text-[10px]
+                                    text-gray-500
+                                    mt-1">
+
+                            ${m.time || ""}
+
+                            ${
+                                mine
+                                ? " ✓✓"
+                                : ""
+                            }
+
+                        </div>
+
+                    </div>
+
+                `;
+
+
+                box.appendChild(
+                    div
+                );
+
+            }
+        );
+
+
+    box.scrollTop =
+        box.scrollHeight;
+
+}
+
+
+/* ================================================
+GROUP
+================================================ */
 
 function createGroup() {
 
@@ -1577,57 +1090,297 @@ function createGroup() {
             "اسم المجموعة:"
         );
 
-    if (!name || !name.trim())
+    if (!name)
         return;
+
 
     socket.emit(
         "create_group",
         {
-            name: name.trim()
+            name:
+                name.trim()
         }
     );
 
 }
 
 
-// ==================================================
-// CALL
-// ==================================================
+/* ================================================
+AI OPEN
+================================================ */
+
+function openAI() {
+
+    document
+        .getElementById(
+            "ai-screen"
+        )
+        .classList.remove(
+            "hidden"
+        );
+
+    document
+        .getElementById(
+            "ai-input"
+        )
+        .focus();
+
+}
+
+
+/* ================================================
+AI CLOSE
+================================================ */
+
+function closeAI() {
+
+    document
+        .getElementById(
+            "ai-screen"
+        )
+        .classList.add(
+            "hidden"
+        );
+
+}
+
+
+/* ================================================
+AI SEND
+================================================ */
+
+function sendAI() {
+
+    const input =
+        document.getElementById(
+            "ai-input"
+        );
+
+    const text =
+        input.value.trim();
+
+    if (!text)
+        return;
+
+
+    addAIMessage(
+        "user",
+        text
+    );
+
+
+    aiHistory.push({
+
+        role:
+            "user",
+
+        content:
+            text
+
+    });
+
+
+    document
+        .getElementById(
+            "ai-status"
+        )
+        .innerText =
+        "جاري التفكير...";
+
+
+    socket.emit(
+        "ai_message",
+        {
+
+            text:
+                text,
+
+            history:
+                aiHistory
+
+        }
+    );
+
+
+    input.value = "";
+
+}
+
+
+function aiKey(e) {
+
+    if (e.key === "Enter") {
+
+        e.preventDefault();
+
+        sendAI();
+
+    }
+
+}
+
+
+/* ================================================
+AI RESPONSE
+================================================ */
+
+socket.on(
+    "ai_response",
+    data => {
+
+        addAIMessage(
+            "assistant",
+            data.text
+        );
+
+
+        aiHistory.push({
+
+            role:
+                "assistant",
+
+            content:
+                data.text
+
+        });
+
+
+        document
+            .getElementById(
+                "ai-status"
+            )
+            .innerText =
+            "جاهز";
+
+    }
+);
+
+
+socket.on(
+    "ai_status",
+    status => {
+
+        document
+            .getElementById(
+                "ai-status"
+            )
+            .innerText =
+            status;
+
+    }
+);
+
+
+socket.on(
+    "ai_error",
+    error => {
+
+        addAIMessage(
+            "assistant",
+            "⚠️ " + error
+        );
+
+
+        document
+            .getElementById(
+                "ai-status"
+            )
+            .innerText =
+            "حدث خطأ";
+
+    }
+);
+
+
+/* ================================================
+AI MESSAGE UI
+================================================ */
+
+function addAIMessage(
+    role,
+    text
+) {
+
+    const box =
+        document.getElementById(
+            "ai-messages"
+        );
+
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+
+    div.className =
+        role === "user"
+        ? "message-bubble user-bubble"
+        : "message-bubble ai-bubble";
+
+
+    div.innerText =
+        text;
+
+
+    box.appendChild(
+        div
+    );
+
+
+    box.scrollTop =
+        box.scrollHeight;
+
+}
+
+
+/* ================================================
+CLEAR AI
+================================================ */
+
+function clearAI() {
+
+    aiHistory = [];
+
+
+    const box =
+        document.getElementById(
+            "ai-messages"
+        );
+
+
+    box.innerHTML = `
+
+        <div class="message-bubble ai-bubble">
+
+            🤖 تم مسح المحادثة.
+            اكتب لي من جديد!
+
+        </div>
+
+    `;
+
+}
+
+
+/* ================================================
+CALL
+================================================ */
 
 async function startCall(type) {
-
-    if (!currentChat)
-        return;
 
     if (
         !usersData[currentChat]
     ) {
 
         alert(
-            "المكالمات متاحة مع المستخدمين فقط."
+            "اختار مستخدم متصل أولاً."
         );
 
         return;
+
     }
 
-    if (
-        usersData[currentChat].status !==
-        "متصل"
-    ) {
-
-        alert(
-            "هذا المستخدم غير متصل حالياً."
-        );
-
-        return;
-    }
-
-    currentCallType = type;
-
-    callParticipants = [
-        myUsername,
-        currentChat
-    ];
 
     try {
 
@@ -1643,258 +1396,14 @@ async function startCall(type) {
 
                 });
 
-    } catch (error) {
-
-        alert(
-            "تعذر تشغيل المايك أو الكاميرا."
-        );
-
-        return;
-    }
-
-
-    document
-        .getElementById("call-modal")
-        .classList.remove("hidden");
-
-    document
-        .getElementById("call-title")
-        .innerText =
-        "مكالمة مع " +
-        currentChat;
-
-    if (type === "video") {
-
-        const video =
-            document.getElementById(
-                "local-video"
-            );
-
-        video.classList.remove(
-            "hidden"
-        );
-
-        video.srcObject =
-            localStream;
-
-    }
-
-
-    const pc =
-        createPeerConnection(
-            currentChat
-        );
-
-    localStream
-        .getTracks()
-        .forEach(
-            track =>
-                pc.addTrack(
-                    track,
-                    localStream
-                )
-        );
-
-    const offer =
-        await pc.createOffer();
-
-    await pc.setLocalDescription(
-        offer
-    );
-
-    socket.emit(
-        "call_user",
-        {
-            to: currentChat,
-            offer: offer,
-            type: type
-        }
-    );
-
-}
-
-
-// ==================================================
-// PEER CONNECTION
-// ==================================================
-
-function createPeerConnection(username) {
-
-    const pc =
-        new RTCPeerConnection(
-            rtcConfig
-        );
-
-    peerConnections[username] =
-        pc;
-
-
-    pc.ontrack = event => {
-
-        const stream =
-            event.streams[0];
-
-        if (
-            stream.getVideoTracks().length
-        ) {
-
-            const video =
-                document.getElementById(
-                    "remote-video"
-                );
-
-            video.classList.remove(
-                "hidden"
-            );
-
-            video.srcObject =
-                stream;
-
-        } else {
-
-            let audio =
-                document.getElementById(
-                    "remote-audio"
-                );
-
-            if (!audio) {
-
-                audio =
-                    document.createElement(
-                        "audio"
-                    );
-
-                audio.id =
-                    "remote-audio";
-
-                audio.autoplay =
-                    true;
-
-                document.body
-                    .appendChild(
-                        audio
-                    );
-            }
-
-            audio.srcObject =
-                stream;
-
-        }
-
-    };
-
-
-    pc.onicecandidate =
-        event => {
-
-            if (
-                event.candidate
-            ) {
-
-                socket.emit(
-                    "ice_candidate",
-                    {
-                        to: username,
-                        candidate:
-                            event.candidate
-                    }
-                );
-
-            }
-
-        };
-
-
-    return pc;
-
-}
-
-
-// ==================================================
-// INCOMING CALL
-// ==================================================
-
-socket.on(
-    "incoming_call",
-    data => {
-
-        incomingCallData =
-            data;
-
-        document
-            .getElementById(
-                "incoming-name"
-            )
-            .innerText =
-            data.from;
-
-        document
-            .getElementById(
-                "incoming-call"
-            )
-            .classList.remove(
-                "hidden"
-            );
-
-    }
-);
-
-
-// ==================================================
-// ACCEPT CALL
-// ==================================================
-
-async function acceptCall() {
-
-    const data =
-        incomingCallData;
-
-    if (!data)
-        return;
-
-    document
-        .getElementById(
-            "incoming-call"
-        )
-        .classList.add(
-            "hidden"
-        );
-
-    currentChat =
-        data.from;
-
-    currentCallType =
-        data.type || "audio";
-
-    callParticipants =
-        [
-            data.from,
-            myUsername
-        ];
-
-
-    try {
-
-        localStream =
-            await navigator
-                .mediaDevices
-                .getUserMedia({
-
-                    audio: true,
-
-                    video:
-                        currentCallType ===
-                        "video"
-
-                });
-
     } catch (e) {
 
         alert(
-            "تعذر تشغيل المايك أو الكاميرا."
+            "تعذر الوصول إلى المايك أو الكاميرا."
         );
 
         return;
+
     }
 
 
@@ -1907,8 +1416,25 @@ async function acceptCall() {
         );
 
 
+    document
+        .getElementById(
+            "call-title"
+        )
+        .innerText =
+        "مكالمة مع " +
+        currentChat;
+
+
+    document
+        .getElementById(
+            "call-status"
+        )
+        .innerText =
+        "جاري الاتصال...";
+
+
     if (
-        currentCallType ===
+        type ===
         "video"
     ) {
 
@@ -1927,89 +1453,298 @@ async function acceptCall() {
     }
 
 
-    const pc =
-        createPeerConnection(
-            data.from
-        );
+    peerConnection =
+        new RTCPeerConnection({
+
+            iceServers: [
+
+                {
+                    urls:
+                    "stun:stun.l.google.com:19302"
+                }
+
+            ]
+
+        });
+
 
     localStream
         .getTracks()
         .forEach(
             track =>
-                pc.addTrack(
+                peerConnection.addTrack(
                     track,
                     localStream
                 )
         );
 
 
-    await pc.setRemoteDescription(
-        new RTCSessionDescription(
-            data.offer
-        )
-    );
+    peerConnection.ontrack =
+        event => {
+
+            const video =
+                document.getElementById(
+                    "remote-video"
+                );
+
+            video.classList.remove(
+                "hidden"
+            );
+
+            video.srcObject =
+                event.streams[0];
+
+        };
 
 
-    const answer =
-        await pc.createAnswer();
+    peerConnection.onicecandidate =
+        event => {
 
-    await pc.setLocalDescription(
-        answer
-    );
+            if (
+                event.candidate
+            ) {
+
+                socket.emit(
+                    "ice_candidate",
+                    {
+
+                        to:
+                            currentChat,
+
+                        candidate:
+                            event.candidate
+
+                    }
+                );
+
+            }
+
+        };
+
+
+    const offer =
+        await peerConnection
+            .createOffer();
+
+
+    await peerConnection
+        .setLocalDescription(
+            offer
+        );
 
 
     socket.emit(
-        "make_answer",
+        "call_user",
         {
-            to: data.from,
-            answer: answer
+
+            to:
+                currentChat,
+
+            offer:
+                offer,
+
+            type:
+                type
+
         }
     );
 
 }
 
 
-// ==================================================
-// REJECT
-// ==================================================
+socket.on(
+    "incoming_call",
+    async data => {
 
-function rejectCall() {
-
-    incomingCallData =
-        null;
-
-    document
-        .getElementById(
-            "incoming-call"
-        )
-        .classList.add(
-            "hidden"
-        );
-
-}
+        const accepted =
+            confirm(
+                "مكالمة واردة من " +
+                data.from +
+                "\n\nاضغط OK للقبول."
+            );
 
 
-// ==================================================
-// ANSWER
-// ==================================================
+        if (!accepted)
+            return;
+
+
+        try {
+
+            localStream =
+                await navigator
+                    .mediaDevices
+                    .getUserMedia({
+
+                        audio: true,
+
+                        video:
+                            data.type ===
+                            "video"
+
+                    });
+
+
+            document
+                .getElementById(
+                    "call-modal"
+                )
+                .classList.remove(
+                    "hidden"
+                );
+
+
+            if (
+                data.type ===
+                "video"
+            ) {
+
+                const video =
+                    document.getElementById(
+                        "local-video"
+                    );
+
+                video.classList.remove(
+                    "hidden"
+                );
+
+                video.srcObject =
+                    localStream;
+
+            }
+
+
+            peerConnection =
+                new RTCPeerConnection({
+
+                    iceServers: [
+
+                        {
+                            urls:
+                            "stun:stun.l.google.com:19302"
+                        }
+
+                    ]
+
+                });
+
+
+            localStream
+                .getTracks()
+                .forEach(
+                    track =>
+                        peerConnection
+                            .addTrack(
+                                track,
+                                localStream
+                            )
+                );
+
+
+            peerConnection.ontrack =
+                event => {
+
+                    const video =
+                        document
+                            .getElementById(
+                                "remote-video"
+                            );
+
+                    video.classList
+                        .remove(
+                            "hidden"
+                        );
+
+                    video.srcObject =
+                        event.streams[0];
+
+                };
+
+
+            peerConnection.onicecandidate =
+                event => {
+
+                    if (
+                        event.candidate
+                    ) {
+
+                        socket.emit(
+                            "ice_candidate",
+                            {
+
+                                to:
+                                    data.from,
+
+                                candidate:
+                                    event.candidate
+
+                            }
+                        );
+
+                    }
+
+                };
+
+
+            await peerConnection
+                .setRemoteDescription(
+                    new RTCSessionDescription(
+                        data.offer
+                    )
+                );
+
+
+            const answer =
+                await peerConnection
+                    .createAnswer();
+
+
+            await peerConnection
+                .setLocalDescription(
+                    answer
+                );
+
+
+            socket.emit(
+                "make_answer",
+                {
+
+                    to:
+                        data.from,
+
+                    answer:
+                        answer
+
+                }
+            );
+
+
+        } catch (e) {
+
+            alert(
+                "تعذر بدء المكالمة."
+            );
+
+        }
+
+    }
+);
+
 
 socket.on(
     "call_answered",
     async data => {
 
-        const pc =
-            peerConnections[
-                data.from
-            ];
-
-        if (!pc)
+        if (!peerConnection)
             return;
 
-        await pc.setRemoteDescription(
-            new RTCSessionDescription(
-                data.answer
-            )
-        );
+
+        await peerConnection
+            .setRemoteDescription(
+                new RTCSessionDescription(
+                    data.answer
+                )
+            );
+
 
         document
             .getElementById(
@@ -2022,29 +1757,22 @@ socket.on(
 );
 
 
-// ==================================================
-// ICE
-// ==================================================
-
 socket.on(
     "ice_candidate",
     async data => {
 
-        const pc =
-            peerConnections[
-                data.from
-            ];
-
-        if (!pc)
+        if (!peerConnection)
             return;
+
 
         try {
 
-            await pc.addIceCandidate(
-                new RTCIceCandidate(
-                    data.candidate
-                )
-            );
+            await peerConnection
+                .addIceCandidate(
+                    new RTCIceCandidate(
+                        data.candidate
+                    )
+                );
 
         } catch (e) {}
 
@@ -2052,273 +1780,59 @@ socket.on(
 );
 
 
-// ==================================================
-// INVITE PERSON
-// ==================================================
-
-function invitePerson() {
-
-    if (
-        callParticipants.length >= 4
-    ) {
-
-        alert(
-            "الحد الأقصى 4 أشخاص."
-        );
-
-        return;
-    }
-
-
-    const username =
-        prompt(
-            "اكتب اسم الشخص الذي تريد دعوته:"
-        );
-
-    if (!username)
-        return;
-
-    if (
-        username === myUsername
-    )
-        return;
-
-    if (
-        callParticipants.includes(
-            username
-        )
-    ) {
-
-        alert(
-            "هذا الشخص موجود بالمكالمة."
-        );
-
-        return;
-    }
-
-
-    callParticipants.push(
-        username
-    );
-
-
-    socket.emit(
-        "invite_to_call",
-        {
-            to: username,
-            participants:
-                callParticipants,
-            type:
-                currentCallType
-        }
-    );
-
-
-    updateParticipants();
-
-}
-
-
-// ==================================================
-// GROUP CALL INVITE
-// ==================================================
-
-socket.on(
-    "call_invite",
-    data => {
-
-        const answer =
-            confirm(
-                data.from +
-                " يريد إضافتك إلى مكالمة. قبول؟"
-            );
-
-        if (!answer)
-            return;
-
-        callParticipants =
-            Array.from(
-                new Set([
-                    ...(data.participants || []),
-                    myUsername
-                ])
-            ).slice(0, 4);
-
-
-        socket.emit(
-            "join_group_call",
-            {
-                participants:
-                    callParticipants
-            }
-        );
-
-        document
-            .getElementById(
-                "call-modal"
-            )
-            .classList.remove(
-                "hidden"
-            );
-
-        updateParticipants();
-
-    }
-);
-
-
-// ==================================================
-// PARTICIPANT JOINED
-// ==================================================
-
-socket.on(
-    "group_call_participant_joined",
-    data => {
-
-        callParticipants =
-            data.participants || [];
-
-        updateParticipants();
-
-    }
-);
-
-
-function updateParticipants() {
-
-    document
-        .getElementById(
-            "participants"
-        )
-        .innerText =
-        "المشاركون: " +
-        callParticipants.join(
-            " • "
-        );
-
-}
-
-
-// ==================================================
-// MIC
-// ==================================================
+/* ================================================
+MIC
+================================================ */
 
 function toggleMic() {
 
     if (!localStream)
         return;
 
-    const tracks =
-        localStream.getAudioTracks();
 
-    if (!tracks.length)
-        return;
-
-    isMuted =
-        !isMuted;
-
-    tracks.forEach(
-        track =>
-            track.enabled =
-                !isMuted
-    );
+    muted =
+        !muted;
 
 
-    document
-        .getElementById(
-            "call-mic"
-        )
-        .innerHTML =
-        isMuted
-        ? '<i class="fa-solid fa-microphone-slash"></i>'
-        : '<i class="fa-solid fa-microphone"></i>';
-
-
-    socket.emit(
-        "call_mic_status",
-        {
-            participants:
-                callParticipants,
-
-            muted:
-                isMuted
-        }
-    );
+    localStream
+        .getAudioTracks()
+        .forEach(
+            track =>
+                track.enabled =
+                !muted
+        );
 
 }
 
 
-// ==================================================
-// CAMERA
-// ==================================================
+/* ================================================
+CAMERA
+================================================ */
 
 function toggleCamera() {
 
     if (!localStream)
         return;
 
-    const tracks =
-        localStream.getVideoTracks();
 
-    if (!tracks.length)
-        return;
-
-    cameraEnabled =
-        !cameraEnabled;
-
-    tracks.forEach(
-        track =>
-            track.enabled =
-                cameraEnabled
-    );
+    cameraOn =
+        !cameraOn;
 
 
-    document
-        .getElementById(
-            "call-camera"
-        )
-        .innerHTML =
-        cameraEnabled
-        ? '<i class="fa-solid fa-video"></i>'
-        : '<i class="fa-solid fa-video-slash"></i>';
-
-
-    socket.emit(
-        "call_camera_status",
-        {
-            participants:
-                callParticipants,
-
-            enabled:
-                cameraEnabled
-        }
-    );
+    localStream
+        .getVideoTracks()
+        .forEach(
+            track =>
+                track.enabled =
+                cameraOn
+        );
 
 }
 
 
-// ==================================================
-// TURN
-// ==================================================
-
-socket.on(
-    "show_turn_alert",
-    () => {
-
-        document
-            .getElementById(
-                "call-status"
-            )
-            .innerText =
-            "المكالمة جارية • اتصال TURN فعال";
-
-    }
-);
-
-
-// ==================================================
-// END CALL
-// ==================================================
+/* ================================================
+END CALL
+================================================ */
 
 function endCall() {
 
@@ -2334,30 +1848,14 @@ function endCall() {
     }
 
 
-    for (
-        const username in peerConnections
-    ) {
+    if (peerConnection) {
 
-        try {
+        peerConnection.close();
 
-            peerConnections[
-                username
-            ].close();
-
-        } catch (e) {}
+        peerConnection =
+            null;
 
     }
-
-
-    peerConnections = {};
-
-    socket.emit(
-        "end_call",
-        {
-            participants:
-                callParticipants
-        }
-    );
 
 
     document
@@ -2386,99 +1884,12 @@ function endCall() {
             "hidden"
         );
 
-
-    document
-        .getElementById(
-            "local-video"
-        )
-        .srcObject =
-        null;
-
-
-    document
-        .getElementById(
-            "remote-video"
-        )
-        .srcObject =
-        null;
-
-
-    callParticipants = [];
-
-    incomingCallData = null;
-
 }
 
 
-// ==================================================
-// CALL ENDED
-// ==================================================
-
-socket.on(
-    "call_ended",
-    () => {
-
-        endCall();
-
-        alert(
-            "انتهت المكالمة."
-        );
-
-    }
-);
-
-
-// ==================================================
-// CREATE GROUP
-// ==================================================
-
-socket.on(
-    "group_error",
-    message => {
-
-        alert(message);
-
-    }
-);
-
-
-// ==================================================
-// DARK MODE
-// ==================================================
-
-function toggleDarkMode() {
-
-    document.documentElement
-        .classList.toggle(
-            "dark"
-        );
-
-    localStorage.setItem(
-        "darkMode",
-        document.documentElement
-            .classList.contains("dark")
-    );
-
-}
-
-
-if (
-    localStorage.getItem(
-        "darkMode"
-    ) === "true"
-) {
-
-    document.documentElement
-        .classList.add(
-            "dark"
-        );
-
-}
-
-
-// ==================================================
-// ESCAPE HTML
-// ==================================================
+/* ================================================
+ESCAPE
+================================================ */
 
 function escapeHtml(text) {
 
