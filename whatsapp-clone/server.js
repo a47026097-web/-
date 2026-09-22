@@ -1,544 +1,1443 @@
+
 const express = require("express");
-const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
+const http = require("http");
+const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    maxHttpBufferSize: 50 * 1024 * 1024
+});
+
 const PORT = process.env.PORT || 8080;
 
+const DATA_FILE = path.join(__dirname, "data.json");
+
+const MAX_CALL_PARTICIPANTS = 4;
+
 app.use(express.json({ limit: "50mb" }));
-app.use(express.static(path.join(__dirname, ".")));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-const DATA_FILE = path.join(__dirname, "chat-data.json");
+app.use(express.static(__dirname));
 
-// ==============================
-// تحميل البيانات
-// ==============================
+
+/* =========================================================
+   DATA
+========================================================= */
 
 let database = {
     users: {},
     messages: [],
-    groups: ["الدردشة العامة"]
+    groups: [
+        {
+            id: "general",
+            name: "الدردشة العامة",
+            owner: "system",
+            members: []
+        }
+    ]
 };
+
 
 function loadDatabase() {
     try {
         if (fs.existsSync(DATA_FILE)) {
-            const data = fs.readFileSync(DATA_FILE, "utf8");
+            const content = fs.readFileSync(DATA_FILE, "utf8");
 
-            if (data.trim()) {
-                const parsed = JSON.parse(data);
+            if (content.trim()) {
+                const saved = JSON.parse(content);
 
                 database = {
-                    users: parsed.users || {},
-                    messages: parsed.messages || [],
-                    groups: parsed.groups || ["الدردشة العامة"]
+                    users: saved.users || {},
+                    messages: saved.messages || [],
+                    groups: saved.groups || [
+                        {
+                            id: "general",
+                            name: "الدردشة العامة",
+                            owner: "system",
+                            members: []
+                        }
+                    ]
                 };
             }
         }
     } catch (error) {
-        console.error("خطأ بتحميل قاعدة البيانات:", error);
+        console.error("خطأ بقراءة data.json:", error);
     }
 }
 
+
+let saveTimer = null;
+
 function saveDatabase() {
-    try {
-        fs.writeFileSync(
-            DATA_FILE,
-            JSON.stringify(database, null, 2),
-            "utf8"
-        );
-    } catch (error) {
-        console.error("خطأ بحفظ قاعدة البيانات:", error);
-    }
+    if (saveTimer) return;
+
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+
+        try {
+            const tempFile = DATA_FILE + ".tmp";
+
+            fs.writeFileSync(
+                tempFile,
+                JSON.stringify(database, null, 2),
+                "utf8"
+            );
+
+            fs.renameSync(tempFile, DATA_FILE);
+
+        } catch (error) {
+            console.error("خطأ بحفظ البيانات:", error);
+        }
+    }, 300);
 }
+
 
 loadDatabase();
 
-// المستخدمون المتصلون حاليًا
+
+/* =========================================================
+   ONLINE USERS
+========================================================= */
+
 const onlineUsers = {};
 
-// ==============================
-// أدوات مساعدة
-// ==============================
 
-function makeId(prefix = "id") {
-    return (
-        prefix +
-        "_" +
-        Date.now() +
-        "_" +
-        Math.random().toString(36).substring(2, 10)
-    );
-}
+/*
+    onlineUsers = {
+        username: {
+            socketId: "...",
+            lastSeen: ...
+        }
+    }
+*/
 
-function cleanUsername(username) {
-    if (typeof username !== "string") return "";
 
-    return username
-        .trim()
-        .replace(/[<>]/g, "")
-        .substring(0, 30);
-}
-
-function cleanText(text) {
-    if (typeof text !== "string") return "";
-
-    return text
-        .trim()
-        .substring(0, 5000);
-}
-
-function isUserOnline(username) {
-    return !!onlineUsers[username];
-}
-
-function getUsersForClient() {
+function getPublicUsers() {
     const result = {};
 
     for (const username in database.users) {
         const user = database.users[username];
 
         result[username] = {
-            status: onlineUsers[username] ? "متصل" : "غير متصل",
-            lastSeen: user.lastSeen || null
-        };
-    }
+            status: onlineUsers[username]
+                ? "متصل"
+                : "غير متصل",
 
-    for (const username in onlineUsers) {
-        if (!result[username]) {
-            result[username] = {
-                status: "متصل",
-                lastSeen: null
-            };
-        }
+            lastSeen: user.lastSeen || null,
+
+            createdAt: user.createdAt || null
+        };
     }
 
     return result;
 }
 
-function sendUsersUpdate() {
-    io.emit("update_users", getUsersForClient());
+
+function getGroups() {
+    return database.groups.map(group => ({
+        id: group.id,
+        name: group.name,
+        owner: group.owner,
+        members: group.members || []
+    }));
 }
 
-function sendGroupsUpdate() {
-    io.emit("update_groups", database.groups);
+
+function findSocketByUsername(username) {
+    const user = onlineUsers[username];
+
+    if (!user) return null;
+
+    return user.socketId;
 }
 
-// ==============================
-// Socket.IO
-// ==============================
 
-io.on("connection", (socket) => {
+function sendToUser(username, event, data) {
+    const socketId = findSocketByUsername(username);
 
-    console.log("Client connected:", socket.id);
+    if (!socketId) return false;
 
-    // ==========================
-    // تسجيل الدخول
-    // ==========================
+    io.to(socketId).emit(event, data);
 
-    socket.on("verify_user", (username) => {
+    return true;
+}
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function cleanUsername(name) {
+    if (typeof name !== "string") return "";
+
+    return name
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 30);
+}
+
+
+function generateId(prefix = "id") {
+    return (
+        prefix +
+        "_" +
+        Date.now() +
+        "_" +
+        Math.random()
+            .toString(36)
+            .slice(2, 10)
+    );
+}
+
+
+function isGroup(chatId) {
+    return database.groups.some(group =>
+        group.id === chatId
+    );
+}
+
+
+function findGroup(groupId) {
+    return database.groups.find(group =>
+        group.id === groupId
+    );
+}
+
+
+function isUser(username) {
+    return !!database.users[username];
+}
+
+
+function messageBelongsToUser(message, username) {
+    return (
+        message.username === username ||
+        message.from === username ||
+        message.to === username
+    );
+}
+
+
+/* =========================================================
+   API
+========================================================= */
+
+app.get("/api/status", (req, res) => {
+    res.json({
+        ok: true,
+        developer: "محمد حسنين",
+        users: Object.keys(database.users).length,
+        online: Object.keys(onlineUsers).length,
+        groups: database.groups.length,
+        maxCallParticipants: MAX_CALL_PARTICIPANTS
+    });
+});
+
+
+app.get("/api/account/:username", (req, res) => {
+
+    const username =
+        cleanUsername(req.params.username);
+
+    if (!username || !database.users[username]) {
+        return res.status(404).json({
+            ok: false,
+            error: "الحساب غير موجود"
+        });
+    }
+
+    const user = database.users[username];
+
+    res.json({
+        ok: true,
+        user: {
+            username: username,
+            createdAt: user.createdAt,
+            lastSeen: user.lastSeen || null,
+            online: !!onlineUsers[username]
+        }
+    });
+});
+
+
+/* =========================================================
+   SOCKET CONNECTION
+========================================================= */
+
+io.on("connection", socket => {
+
+    console.log("Connected:", socket.id);
+
+
+    /* =====================================================
+       LOGIN / ACCOUNT
+    ===================================================== */
+
+    socket.on("verify_user", username => {
 
         username = cleanUsername(username);
 
         if (!username) {
-            socket.emit("auth_error", "اسم المستخدم غير صالح");
+            socket.emit("auth_error", "اكتب اسم المستخدم");
             return;
         }
 
-        // إذا نفس الاسم موجود على جهاز آخر
+        if (username.length < 2) {
+            socket.emit(
+                "auth_error",
+                "اسم المستخدم يجب أن يكون حرفين على الأقل"
+            );
+
+            return;
+        }
+
+
+        /*
+            إذا الحساب مفتوح من مكان آخر:
+            نغلق الجلسة القديمة.
+        */
+
         if (
             onlineUsers[username] &&
             onlineUsers[username].socketId !== socket.id
         ) {
-            socket.emit(
-                "auth_error",
-                "هذا الاسم مستخدم حاليًا على جهاز آخر"
-            );
-            return;
+
+            const oldSocket =
+                io.sockets.sockets.get(
+                    onlineUsers[username].socketId
+                );
+
+            if (oldSocket) {
+                oldSocket.emit(
+                    "account_logged_elsewhere"
+                );
+
+                oldSocket.disconnect(true);
+            }
+
+            delete onlineUsers[username];
         }
+
+
+        const now = Date.now();
+
+
+        if (!database.users[username]) {
+
+            database.users[username] = {
+                username: username,
+                createdAt: now,
+                lastSeen: now
+            };
+
+            saveDatabase();
+
+            socket.emit("account_created", {
+                username: username
+            });
+
+        } else {
+
+            socket.emit("account_existing", {
+                username: username
+            });
+
+        }
+
+
+        database.users[username].lastSeen = now;
+
 
         socket.username = username;
 
-        if (!database.users[username]) {
-            database.users[username] = {
-                username: username,
-                createdAt: Date.now(),
-                lastSeen: null
-            };
+
+        onlineUsers[username] = {
+            socketId: socket.id,
+            lastSeen: now
+        };
+
+
+        socket.join("user:" + username);
+
+
+        socket.emit("auth_success", username);
+
+
+        /*
+            إرسال البيانات المحفوظة للمستخدم
+        */
+
+        const userMessages =
+            database.messages.filter(message => {
+
+                if (message.chatType === "group") {
+                    return true;
+                }
+
+                return (
+                    message.username === username ||
+                    message.from === username ||
+                    message.to === username
+                );
+            });
+
+
+        socket.emit(
+            "load_history",
+            userMessages
+        );
+
+
+        socket.emit(
+            "update_users",
+            getPublicUsers()
+        );
+
+
+        socket.emit(
+            "update_groups",
+            getGroups()
+        );
+
+
+        io.emit(
+            "update_users",
+            getPublicUsers()
+        );
+
+
+        console.log(
+            username + " logged in"
+        );
+    });
+
+
+    /* =====================================================
+       LOGOUT
+    ===================================================== */
+
+    socket.on("logout", () => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        if (onlineUsers[username]) {
+            delete onlineUsers[username];
+        }
+
+
+        if (database.users[username]) {
+            database.users[username].lastSeen =
+                Date.now();
 
             saveDatabase();
         }
 
-        onlineUsers[username] = {
-            socketId: socket.id
-        };
 
-        socket.emit("auth_success", username);
+        socket.emit("logout_success");
 
-        // إرسال البيانات القديمة
-        socket.emit("load_history", database.messages);
 
-        socket.emit("update_users", getUsersForClient());
-        socket.emit("update_groups", database.groups);
+        io.emit(
+            "update_users",
+            getPublicUsers()
+        );
 
-        sendUsersUpdate();
 
-        console.log(username + " دخل إلى الدردشة");
+        socket.username = null;
     });
 
-    // ==========================
-    // إنشاء مجموعة
-    // ==========================
 
-    socket.on("create_group", (groupName) => {
+    /* =====================================================
+       CREATE GROUP
+    ===================================================== */
 
-        if (!socket.username) return;
+    socket.on("create_group", groupName => {
 
-        groupName = cleanText(groupName);
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        groupName =
+            cleanUsername(groupName);
+
 
         if (!groupName) return;
 
-        if (database.groups.includes(groupName)) {
+
+        if (
+            database.groups.some(
+                group =>
+                    group.name === groupName
+            )
+        ) {
+
+            socket.emit(
+                "server_error",
+                "هذه المجموعة موجودة بالفعل"
+            );
+
             return;
         }
 
-        database.groups.push(groupName);
+
+        const group = {
+            id: generateId("group"),
+            name: groupName,
+            owner: username,
+            members: [username]
+        };
+
+
+        database.groups.push(group);
 
         saveDatabase();
 
-        sendGroupsUpdate();
+
+        io.emit(
+            "update_groups",
+            getGroups()
+        );
     });
 
-    // ==========================
-    // إرسال رسالة
-    // ==========================
 
-    socket.on("send_message", (msgData) => {
+    /* =====================================================
+       JOIN GROUP
+    ===================================================== */
 
-        if (!socket.username) return;
-        if (!msgData) return;
+    socket.on("join_group", groupId => {
 
-        const message = {
-            id: makeId("msg"),
-            chat: msgData.chat || "الدردشة العامة",
-            username: socket.username,
-            type: msgData.type || "text",
-            text: msgData.text ? cleanText(msgData.text) : "",
-            content: msgData.content || "",
-            time: msgData.time || new Date().toLocaleTimeString("ar-IQ", {
-                hour: "2-digit",
-                minute: "2-digit"
-            }),
-            timestamp: Date.now(),
+        const username = socket.username;
 
-            // حالة الرسالة
-            status: "sent",
+        if (!username) return;
 
-            edited: false,
-            deleted: false
-        };
 
-        // منع الملفات الضخمة جدًا
-        if (
-            typeof message.content === "string" &&
-            message.content.length > 20 * 1024 * 1024
-        ) {
-            socket.emit("message_error", "الملف كبير جدًا");
+        const group =
+            findGroup(groupId);
+
+        if (!group) return;
+
+
+        if (!group.members.includes(username)) {
+            group.members.push(username);
+        }
+
+
+        saveDatabase();
+
+
+        socket.emit(
+            "update_groups",
+            getGroups()
+        );
+
+
+        io.emit(
+            "update_groups",
+            getGroups()
+        );
+    });
+
+
+    /* =====================================================
+       SEND MESSAGE
+    ===================================================== */
+
+    socket.on("send_message", msg => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+        if (!msg || typeof msg !== "object") {
             return;
         }
+
+
+        const chat =
+            typeof msg.chat === "string"
+                ? msg.chat
+                : "";
+
+
+        if (!chat) return;
+
+
+        const type =
+            typeof msg.type === "string"
+                ? msg.type
+                : "text";
+
+
+        const message = {
+
+            id: generateId("msg"),
+
+            chat: chat,
+
+            chatType:
+                isGroup(chat)
+                    ? "group"
+                    : "private",
+
+            username: username,
+
+            from: username,
+
+            to:
+                isGroup(chat)
+                    ? null
+                    : chat,
+
+            type: type,
+
+            text:
+                typeof msg.text === "string"
+                    ? msg.text.slice(0, 10000)
+                    : "",
+
+            content:
+                typeof msg.content === "string"
+                    ? msg.content
+                    : null,
+
+            fileName:
+                typeof msg.fileName === "string"
+                    ? msg.fileName.slice(0, 200)
+                    : null,
+
+            time:
+                msg.time ||
+                new Date().toLocaleTimeString(
+                    "ar-IQ",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }
+                ),
+
+            createdAt: Date.now()
+        };
+
+
+        /*
+            للمجموعات
+        */
+
+        if (isGroup(chat)) {
+
+            const group =
+                findGroup(chat);
+
+            if (!group) return;
+
+
+            database.messages.push(message);
+
+            saveDatabase();
+
+
+            /*
+                أرسل لأعضاء المجموعة المتصلين
+            */
+
+            group.members.forEach(member => {
+
+                sendToUser(
+                    member,
+                    "receive_message",
+                    message
+                );
+
+            });
+
+
+            return;
+        }
+
+
+        /*
+            محادثة خاصة
+        */
 
         database.messages.push(message);
 
         saveDatabase();
 
-        // المرسل
-        socket.emit("message_status", {
-            id: message.id,
-            status: "sent"
-        });
 
-        // إرسال للجميع
-        io.emit("receive_message", message);
+        /*
+            المرسل
+        */
 
-        // إذا كانت رسالة خاصة
-        if (
-            message.chat !== "الدردشة العامة" &&
-            !database.groups.includes(message.chat)
-        ) {
+        socket.emit(
+            "receive_message",
+            message
+        );
 
-            const target = onlineUsers[message.chat];
 
-            if (target) {
-                io.to(target.socketId).emit("message_status", {
-                    id: message.id,
-                    status: "delivered"
-                });
-            }
-        } else {
-            // المجموعة
-            socket.emit("message_status", {
-                id: message.id,
-                status: "delivered"
-            });
+        /*
+            المستقبل
+        */
+
+        if (chat !== username) {
+
+            sendToUser(
+                chat,
+                "receive_message",
+                message
+            );
+
+            sendToUser(
+                chat,
+                "message_notification",
+                {
+                    from: username,
+                    message: message
+                }
+            );
+
         }
     });
 
-    // ==========================
-    // قراءة الرسالة
-    // ==========================
 
-    socket.on("mark_read", (data) => {
+    /* =====================================================
+       EDIT MESSAGE
+    ===================================================== */
 
-        if (!data || !data.messageId) return;
+    socket.on("edit_message", data => {
 
-        const message = database.messages.find(
-            m => m.id === data.messageId
-        );
+        const username = socket.username;
 
-        if (!message) return;
+        if (!username) return;
 
-        message.status = "read";
 
-        saveDatabase();
+        const message =
+            database.messages.find(
+                item =>
+                    item.id === data.id
+            );
 
-        io.emit("message_status", {
-            id: message.id,
-            status: "read"
-        });
-    });
-
-    // ==========================
-    // تعديل رسالة
-    // ==========================
-
-    socket.on("edit_message", (data) => {
-
-        if (!socket.username) return;
-        if (!data || !data.id) return;
-
-        const message = database.messages.find(
-            m => m.id === data.id
-        );
 
         if (!message) return;
 
-        if (message.username !== socket.username) {
+
+        if (message.username !== username) {
             return;
         }
 
-        if (message.deleted) return;
 
-        message.text = cleanText(data.text);
+        message.text =
+            String(data.text || "")
+                .slice(0, 10000);
+
+
         message.edited = true;
-        message.editedAt = Date.now();
+
 
         saveDatabase();
 
-        io.emit("message_edited", {
-            id: message.id,
-            text: message.text,
-            edited: true
-        });
+
+        /*
+            تحديث المرسل
+        */
+
+        io.emit(
+            "message_edited",
+            message
+        );
     });
 
-    // ==========================
-    // حذف رسالة
-    // ==========================
 
-    socket.on("delete_message", (data) => {
+    /* =====================================================
+       DELETE MESSAGE
+    ===================================================== */
 
-        if (!socket.username) return;
-        if (!data || !data.id) return;
+    socket.on("delete_message", data => {
 
-        const message = database.messages.find(
-            m => m.id === data.id
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const index =
+            database.messages.findIndex(
+                item =>
+                    item.id === data.id
+            );
+
+
+        if (index === -1) return;
+
+
+        const message =
+            database.messages[index];
+
+
+        if (message.username !== username) {
+            return;
+        }
+
+
+        database.messages.splice(index, 1);
+
+        saveDatabase();
+
+
+        io.emit(
+            "message_deleted",
+            {
+                id: message.id
+            }
         );
+    });
+
+
+    /* =====================================================
+       TYPING
+    ===================================================== */
+
+    socket.on("typing", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        if (!data || !data.chat) return;
+
+
+        if (isGroup(data.chat)) {
+
+            const group =
+                findGroup(data.chat);
+
+            if (!group) return;
+
+
+            group.members.forEach(member => {
+
+                if (member !== username) {
+
+                    sendToUser(
+                        member,
+                        "display_typing",
+                        {
+                            chat: data.chat,
+                            username: username
+                        }
+                    );
+
+                }
+
+            });
+
+
+        } else {
+
+            sendToUser(
+                data.chat,
+                "display_typing",
+                {
+                    chat: data.chat,
+                    username: username
+                }
+            );
+
+        }
+    });
+
+
+    /* =====================================================
+       READ MESSAGE
+    ===================================================== */
+
+    socket.on("message_read", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+        const message =
+            database.messages.find(
+                m => m.id === data.id
+            );
 
         if (!message) return;
 
-        if (message.username !== socket.username) {
+
+        if (!message.readBy) {
+            message.readBy = [];
+        }
+
+
+        if (!message.readBy.includes(username)) {
+
+            message.readBy.push(username);
+
+            saveDatabase();
+        }
+
+
+        if (message.username !== username) {
+
+            sendToUser(
+                message.username,
+                "message_read_update",
+                {
+                    id: message.id,
+                    by: username
+                }
+            );
+
+        }
+
+    });
+
+
+    /* =====================================================
+       CALL: INDIVIDUAL
+    ===================================================== */
+
+    socket.on("call_user", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        const target =
+            cleanUsername(data.to);
+
+        if (!target) return;
+
+
+        if (!isUser(target)) {
+
+            socket.emit(
+                "call_error",
+                "المستخدم غير موجود"
+            );
+
             return;
         }
 
-        message.deleted = true;
-        message.text = "";
-        message.content = "";
 
-        saveDatabase();
+        if (!onlineUsers[target]) {
 
-        io.emit("message_deleted", {
-            id: message.id
-        });
-    });
+            socket.emit(
+                "call_error",
+                "المستخدم غير متصل"
+            );
 
-    // ==========================
-    // مؤشر الكتابة
-    // ==========================
-
-    socket.on("typing", (data) => {
-
-        if (!socket.username) return;
-
-        socket.broadcast.emit("display_typing", {
-            chat: data.chat,
-            username: socket.username
-        });
-    });
-
-    // ==========================
-    // البحث
-    // ==========================
-
-    socket.on("search_messages", (query) => {
-
-        if (!socket.username) return;
-
-        query = cleanText(query).toLowerCase();
-
-        if (!query) {
-            socket.emit("search_results", []);
             return;
         }
 
-        const results = database.messages.filter(message => {
 
-            if (message.deleted) return false;
-
-            const text =
-                (message.text || "") +
-                " " +
-                (message.username || "");
-
-            return text.toLowerCase().includes(query);
-        });
-
-        socket.emit("search_results", results.slice(-100));
+        sendToUser(
+            target,
+            "incoming_call",
+            {
+                from: from,
+                offer: data.offer,
+                type: data.type,
+                callId: data.callId || generateId("call")
+            }
+        );
     });
 
-    // =========================================================
-    // WebRTC
-    // =========================================================
 
-    socket.on("call_user", (data) => {
+    /* =====================================================
+       CALL ANSWER
+    ===================================================== */
 
-        if (!socket.username) return;
-        if (!data || !data.to) return;
+    socket.on("make_answer", data => {
 
-        const targetUser = onlineUsers[data.to];
+        const from = socket.username;
 
-        if (!targetUser) {
-            socket.emit("call_error", "المستخدم غير متصل");
+        if (!from) return;
+
+
+        sendToUser(
+            data.to,
+            "call_answered",
+            {
+                answer: data.answer,
+                from: from
+            }
+        );
+    });
+
+
+    /* =====================================================
+       ICE
+    ===================================================== */
+
+    socket.on("ice_candidate", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        sendToUser(
+            data.to,
+            "ice_candidate",
+            {
+                candidate: data.candidate,
+                from: from
+            }
+        );
+    });
+
+
+    /* =====================================================
+       CALL ROOM
+    ===================================================== */
+
+    socket.on("create_call_room", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const roomId =
+            generateId("room");
+
+
+        const participants = [
+            username
+        ];
+
+
+        socket.join("call:" + roomId);
+
+
+        socket.callRoom = roomId;
+
+
+        socket.callParticipants =
+            participants;
+
+
+        socket.emit(
+            "call_room_created",
+            {
+                roomId: roomId,
+                participants: participants,
+                maxParticipants:
+                    MAX_CALL_PARTICIPANTS
+            }
+        );
+    });
+
+
+    /* =====================================================
+       INVITE INTO CALL ROOM
+    ===================================================== */
+
+    socket.on("invite_to_call", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        const roomId =
+            data.roomId;
+
+        const target =
+            cleanUsername(data.to);
+
+
+        if (!roomId || !target) return;
+
+
+        /*
+            اجلب sockets الموجودة داخل الغرفة
+        */
+
+        const room =
+            io.sockets.adapter.rooms.get(
+                "call:" + roomId
+            );
+
+
+        const count =
+            room
+                ? room.size
+                : 0;
+
+
+        if (count >= MAX_CALL_PARTICIPANTS) {
+
+            socket.emit(
+                "call_error",
+                "المكالمة وصلت للحد الأقصى: 4 أشخاص"
+            );
+
             return;
         }
 
-        io.to(targetUser.socketId).emit("incoming_call", {
-            from: socket.username,
-            offer: data.offer,
-            type: data.type
-        });
-    });
 
-    socket.on("make_answer", (data) => {
+        if (!onlineUsers[target]) {
 
-        if (!data || !data.to) return;
+            socket.emit(
+                "call_error",
+                "المستخدم غير متصل"
+            );
 
-        const targetUser = onlineUsers[data.to];
-
-        if (!targetUser) return;
-
-        io.to(targetUser.socketId).emit("call_answered", {
-            answer: data.answer,
-            from: socket.username
-        });
-    });
-
-    socket.on("ice_candidate", (data) => {
-
-        if (!data || !data.to) return;
-
-        const targetUser = onlineUsers[data.to];
-
-        if (!targetUser) return;
-
-        io.to(targetUser.socketId).emit("ice_candidate", {
-            candidate: data.candidate,
-            from: socket.username
-        });
-    });
-
-    // TURN
-    socket.on("turn_connection_active", (data) => {
-
-        if (!data || !data.to) return;
-
-        const targetUser = onlineUsers[data.to];
-
-        if (targetUser) {
-            io.to(targetUser.socketId).emit("show_turn_alert");
+            return;
         }
 
-        socket.emit("show_turn_alert");
+
+        sendToUser(
+            target,
+            "call_invitation",
+            {
+                roomId: roomId,
+                from: from,
+                participants:
+                    getCallParticipants(roomId)
+            }
+        );
     });
 
-    // إنهاء المكالمة
-    socket.on("call_ended", (data) => {
 
-        if (!data || !data.to) return;
+    /* =====================================================
+       GET CALL PARTICIPANTS
+    ===================================================== */
 
-        const targetUser = onlineUsers[data.to];
+    function getCallParticipants(roomId) {
 
-        if (targetUser) {
-            io.to(targetUser.socketId).emit("call_ended", {
-                from: socket.username
-            });
+        const room =
+            io.sockets.adapter.rooms.get(
+                "call:" + roomId
+            );
+
+
+        if (!room) return [];
+
+
+        const result = [];
+
+
+        room.forEach(socketId => {
+
+            const s =
+                io.sockets.sockets.get(socketId);
+
+            if (
+                s &&
+                s.username
+            ) {
+
+                result.push(
+                    s.username
+                );
+
+            }
+
+        });
+
+
+        return result;
+    }
+
+
+    /* =====================================================
+       JOIN CALL ROOM
+    ===================================================== */
+
+    socket.on("join_call_room", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const roomId =
+            data.roomId;
+
+        if (!roomId) return;
+
+
+        const roomName =
+            "call:" + roomId;
+
+
+        const room =
+            io.sockets.adapter.rooms.get(
+                roomName
+            );
+
+
+        const count =
+            room
+                ? room.size
+                : 0;
+
+
+        if (count >= MAX_CALL_PARTICIPANTS) {
+
+            socket.emit(
+                "call_room_full"
+            );
+
+            return;
         }
+
+
+        socket.join(roomName);
+
+
+        socket.callRoom = roomId;
+
+
+        const participants =
+            getCallParticipants(roomId);
+
+
+        socket.emit(
+            "call_room_joined",
+            {
+                roomId: roomId,
+                participants: participants
+            }
+        );
+
+
+        socket.to(roomName).emit(
+            "call_participant_joined",
+            {
+                username: username
+            }
+        );
     });
 
-    // ==========================
-    // Disconnect
-    // ==========================
+
+    /* =====================================================
+       CALL SIGNALING
+    ===================================================== */
+
+    socket.on("call_signal", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        if (!data.roomId) return;
+
+
+        socket.to(
+            "call:" + data.roomId
+        ).emit(
+            "call_signal",
+            {
+                from: from,
+                type: data.type,
+                data: data.data
+            }
+        );
+    });
+
+
+    /* =====================================================
+       LEAVE CALL ROOM
+    ===================================================== */
+
+    socket.on("leave_call_room", data => {
+
+        const username = socket.username;
+
+        if (!username) return;
+
+
+        const roomId =
+            data.roomId ||
+            socket.callRoom;
+
+
+        if (!roomId) return;
+
+
+        const roomName =
+            "call:" + roomId;
+
+
+        socket.leave(roomName);
+
+
+        socket.to(roomName).emit(
+            "call_participant_left",
+            {
+                username: username
+            }
+        );
+
+
+        socket.callRoom = null;
+    });
+
+
+    /* =====================================================
+       CALL RING
+    ===================================================== */
+
+    socket.on("ring_call", data => {
+
+        const from = socket.username;
+
+        if (!from) return;
+
+
+        if (!data.to) return;
+
+
+        sendToUser(
+            data.to,
+            "call_ring",
+            {
+                from: from
+            }
+        );
+    });
+
+
+    /* =====================================================
+       TURN ALERT
+    ===================================================== */
+
+    socket.on(
+        "turn_connection_active",
+        data => {
+
+            const from =
+                socket.username;
+
+            if (!from) return;
+
+
+            if (data.to) {
+
+                sendToUser(
+                    data.to,
+                    "show_turn_alert"
+                );
+
+            }
+
+
+            socket.emit(
+                "show_turn_alert"
+            );
+        }
+    );
+
+
+    /* =====================================================
+       DISCONNECT
+    ===================================================== */
 
     socket.on("disconnect", () => {
 
-        if (!socket.username) return;
+        const username =
+            socket.username;
 
-        const username = socket.username;
+
+        if (!username) return;
+
+
+        /*
+            إذا نفس الجلسة
+        */
 
         if (
             onlineUsers[username] &&
             onlineUsers[username].socketId === socket.id
         ) {
+
             delete onlineUsers[username];
 
+
             if (database.users[username]) {
-                database.users[username].lastSeen = Date.now();
+
+                database.users[username].lastSeen =
+                    Date.now();
+
+                saveDatabase();
             }
 
-            saveDatabase();
 
-            sendUsersUpdate();
+            /*
+                إذا داخل مكالمة
+            */
 
-            io.emit("user_last_seen", {
-                username: username,
-                lastSeen: database.users[username]
-                    ? database.users[username].lastSeen
-                    : Date.now()
-            });
+            if (socket.callRoom) {
+
+                socket.to(
+                    "call:" + socket.callRoom
+                ).emit(
+                    "call_participant_left",
+                    {
+                        username: username
+                    }
+                );
+
+            }
+
+
+            io.emit(
+                "update_users",
+                getPublicUsers()
+            );
+
         }
 
-        console.log(username + " خرج من الدردشة");
+
+        console.log(
+            "Disconnected:",
+            username
+        );
     });
+
 });
 
-// ==============================
-// تشغيل السيرفر
-// ==============================
 
-http.listen(PORT, () => {
-    console.log("=================================");
-    console.log("Chat server running");
-    console.log("Port: " + PORT);
-    console.log("=================================");
+/* =========================================================
+   START SERVER
+========================================================= */
+
+server.listen(PORT, "0.0.0.0", () => {
+
+    console.log(
+        "===================================="
+    );
+
+    console.log(
+        "Server running on port " + PORT
+    );
+
+    console.log(
+        "Developer: محمد حسنين"
+    );
+
+    console.log(
+        "Max call participants: " +
+        MAX_CALL_PARTICIPANTS
+    );
+
+    console.log(
+        "Data file: " + DATA_FILE
+    );
+
+    console.log(
+        "===================================="
+    );
 });
